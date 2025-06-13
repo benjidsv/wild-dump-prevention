@@ -1,0 +1,53 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.so
+
+# Conda environments
+.env
+.env.*
+.conda/
+*.conda
+*.env
+*.venv
+venv/
+env/
+ENV/
+*.egg-info/
+
+# Logs
+*.log
+
+# Environment and dependency files
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Flask & secret config
+instance/
+*.sqlite3
+*.db
+*.pem
+*.key
+*.cfg
+*.ini
+*.bak
+
+# Uploads / generated data
+uploads/
+data/
+*.jpg
+*.png
+*.jpeg
+*.gif
+
+# Editor/IDE specific
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Static build artifacts (optional)
+build/
+dist/
+*.egg
+.eggs/
