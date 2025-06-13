@@ -46,5 +46,6 @@ wild-dump-prevention/
 ├── run.py                 # Gunicorn entrypoint (prod)
 ├── config.py              # Configurations (dev/prod)
 ├── requirements.txt       # Pip dependencies
+├── environment.yml        # Conda environment (optional)
 ├── .gitignore
 └── README.md
