@@ -2,9 +2,22 @@
 {% block title %}Upload{% endblock %}
 {% block content %}
 
-<form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data" id="uploadForm">
     <div class="mb-3">
-        <input type="file" name="image" class="form-control" required>
+        <input type="file" name="image" id="imageInput" class="form-control" required>
+    </div>
+    <div class="mb-3">
+        <label for="timestampInput" class="form-label">Timestamp</label>
+        <input type="datetime-local" name="timestamp" id="timestampInput" class="form-control">
+    </div>
+    <div class="mb-3">
+        <label for="labelSelect" class="form-label">Status</label>
+        <select name="label" id="labelSelect" class="form-select">
+            <option value="full">Full</option>
+            <option value="empty">Empty</option>
+        </select>
+        <input type="hidden" name="label_auto" id="labelAuto" value="true">
+        <button type="button" id="resetAutoBtn" class="btn btn-sm btn-secondary mt-2">Reset to Auto</button>
     </div>
     <button type="submit" class="btn btn-primary">Upload</button>
 </form>
@@ -21,5 +34,64 @@
     </div>
     {% endfor %}
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+<script>
+let predictedLabel = null;
+const imageInput = document.getElementById('imageInput');
+const timestampInput = document.getElementById('timestampInput');
+const labelSelect = document.getElementById('labelSelect');
+const labelAuto = document.getElementById('labelAuto');
+const resetBtn = document.getElementById('resetAutoBtn');
+
+imageInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    EXIF.getData(file, function() {
+        const exifDate = EXIF.getTag(this, 'DateTimeOriginal');
+        if (exifDate) {
+            const [date, time] = exifDate.split(' ');
+            const formatted = date.replace(/:/g, '-') + 'T' + time.slice(0,5);
+            timestampInput.value = formatted;
+        } else {
+            timestampInput.value = new Date().toISOString().slice(0,16);
+        }
+    });
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1;
+            canvas.height = 1;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, 1, 1);
+            const data = ctx.getImageData(0,0,1,1).data;
+            const avgR = data[0];
+            const label = (avgR < 100 && file.size > 100000) ? 'full' : 'empty';
+            predictedLabel = label;
+            labelSelect.value = label;
+            labelAuto.value = 'true';
+        };
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+});
+
+labelSelect.addEventListener('change', () => {
+    if (predictedLabel && labelSelect.value !== predictedLabel) {
+        labelAuto.value = 'false';
+    }
+});
+
+resetBtn.addEventListener('click', () => {
+    if (predictedLabel) {
+        labelSelect.value = predictedLabel;
+        labelAuto.value = 'true';
+    }
+});
+</script>
 
 {% endblock %}
