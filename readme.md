@@ -18,6 +18,10 @@ The Wild Dump Prevention (WDP) platform is a lightweight web application that he
 
 ---
 
+## 🚀 TODO
+- "Secure mode" which forces the user to take the picture now ensuring the accuracy of the data (timestamp, location etc.)
+- Batch upload for admins
+
 ## ⚙️ Tech Stack
 
 | Layer | Technology |

@@ -2,20 +2,12 @@
 {% block title %}Upload{% endblock %}
 {% block content %}
 
-<form method="POST" enctype="multipart/form-data">
-    <div class="mb-3">
-        <label for="image">Image</label>
-        <input type="file" name="image" class="form-control" required>
-    </div>
-    <div class="mb-3">
-        <label for="label_choice">Choix de l’étiquette</label>
-        <select name="label_choice" class="form-select">
-            <option value="auto" selected>Détection automatique</option>
-            <option value="full">Manuel – Pleine</option>
-            <option value="empty">Manuel – Vide</option>
-        </select>
-    </div>
-    <button type="submit" class="btn btn-primary">Envoyer</button>
+<form method="POST" enctype="multipart/form-data" action="{{ url_for('main.upload') }}">
+  <div class="mb-3">
+    <label for="image" class="form-label">Choisir une image</label>
+    <input type="file" name="image" class="form-control" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Envoyer</button>
 </form>
 
 <h2>Images Uploadées</h2>

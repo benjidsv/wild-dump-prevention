@@ -34,6 +34,7 @@ instance/
 
 # Uploads / generated data
 app/static/uploads/
+!app/static/uploads/.gitkeep
 data/
 *.jpg
 *.png
