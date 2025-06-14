@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<h2>Statistiques</h2>
+<p>À implémenter : Graphes, filtres, localisation dynamique.</p>
+
+<canvas id="pieChart" width="300" height="300"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('pieChart').getContext('2d');
+const chart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+        labels: ['Pleine', 'Vide'],
+        datasets: [{
+            data: [10, 15], // Placeholder
+            backgroundColor: ['#dc3545', '#198754']
+        }]
+    },
+    options: {
+        responsive: true
+    }
+});
+</script>
+
+{% endblock %}

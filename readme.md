@@ -32,7 +32,6 @@ The Wild Dump Prevention (WDP) platform is a lightweight web application that he
 
 ## 📂 Project Structure
 
-```bash
 wild-dump-prevention/
 ├── app/
 │   ├── templates/         # HTML templates (Jinja2)
@@ -49,3 +48,16 @@ wild-dump-prevention/
 ├── environment.yml        # Conda environment (optional)
 ├── .gitignore
 └── README.md
+
+---
+
+## 📂 How to setup (local)
+log in psql
+-- 1. Create the project database
+CREATE DATABASE wdp_db;
+
+-- 2. Create a dedicated user with password
+CREATE USER wdp_user WITH PASSWORD 'wdp_pass';
+
+-- 3. Grant privileges
+GRANT ALL PRIVILEGES ON DATABASE wdp_db TO wdp_user;

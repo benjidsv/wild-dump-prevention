@@ -5,7 +5,7 @@ __pycache__/
 
 # Conda environments
 .env
-.env.*
+.envexample
 .conda/
 *.conda
 *.env
@@ -33,7 +33,7 @@ instance/
 *.bak
 
 # Uploads / generated data
-uploads/
+app/static/uploads/
 data/
 *.jpg
 *.png
@@ -51,3 +51,4 @@ build/
 dist/
 *.egg
 .eggs/
+

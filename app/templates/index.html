@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Upload{% endblock %}
+{% block content %}
+
+<form method="POST" enctype="multipart/form-data">
+    <div class="mb-3">
+        <input type="file" name="image" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Upload</button>
+</form>
+
+<hr>
+
+<h2>Images Uploadées</h2>
+<div class="row">
+    {% for img in images %}
+    <div class="col-md-3">
+        <img src="{{ url_for('static', filename='uploads/' + img.path.split('/')[-1]) }}" class="img-fluid mb-2">
+        <p><strong>Label :</strong> {{ img.label or "Non annotée" }}</p>
+        <a href="{{ url_for('main.annotate', image_id=img.id) }}" class="btn btn-sm btn-outline-secondary">Annoter</a>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
