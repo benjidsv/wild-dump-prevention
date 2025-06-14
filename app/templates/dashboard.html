@@ -2,27 +2,55 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 
-<h2>Statistiques</h2>
-<p>À implémenter : Graphes, filtres, localisation dynamique.</p>
+<h2>📊 Statistiques de tri</h2>
+
+<form method="GET" class="row g-3 mb-4">
+  <div class="col-md-4">
+    <label for="start_date" class="form-label">Date de début</label>
+    <input type="date" id="start_date" name="start_date" class="form-control" value="{{ request.args.get('start_date', '') }}">
+  </div>
+  <div class="col-md-4">
+    <label for="end_date" class="form-label">Date de fin</label>
+    <input type="date" id="end_date" name="end_date" class="form-control" value="{{ request.args.get('end_date', '') }}">
+  </div>
+  <div class="col-md-4 align-self-end">
+    <button type="submit" class="btn btn-primary">Filtrer</button>
+  </div>
+</form>
 
 <canvas id="pieChart" width="300" height="300"></canvas>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const ctx = document.getElementById('pieChart').getContext('2d');
-const chart = new Chart(ctx, {
+const data = {
+    labels: ['Pleine', 'Vide'],
+    datasets: [{
+        data: [{{ stats.full }}, {{ stats.empty }}],
+        backgroundColor: ['#dc3545', '#198754']
+    }]
+};
+
+const config = {
     type: 'pie',
-    data: {
-        labels: ['Pleine', 'Vide'],
-        datasets: [{
-            data: [10, 15], // Placeholder
-            backgroundColor: ['#dc3545', '#198754']
-        }]
-    },
+    data: data,
     options: {
-        responsive: true
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            },
+            title: {
+                display: true,
+                text: 'Répartition des annotations'
+            }
+        }
     }
-});
+};
+
+const pieChart = new Chart(
+    document.getElementById('pieChart'),
+    config
+);
 </script>
 
 {% endblock %}
