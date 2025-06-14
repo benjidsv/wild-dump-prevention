@@ -24,18 +24,18 @@ The Wild Dump Prevention (WDP) platform is a lightweight web application that he
 
 ## ⚙️ Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Backend | Python 3.11 + Flask |
-| Image Processing | Pillow, OpenCV |
-| Database | SQLite or PostgreSQL |
+| Layer | Technology             |
+|-------|------------------------|
+| Backend | Python 3.11 + Flask    |
+| Image Processing | Pillow, OpenCV         |
+| Database | PostgreSQL             |
 | Frontend | HTML/CSS, Bootstrap 5, Chart.js |
 | Environment | Conda + Gunicorn (for deployment) |
 
 ---
 
 ## 📂 Project Structure
-
+<pre>
 wild-dump-prevention/
 ├── app/
 │   ├── templates/         # HTML templates (Jinja2)
@@ -50,8 +50,9 @@ wild-dump-prevention/
 ├── config.py              # Configurations (dev/prod)
 ├── requirements.txt       # Pip dependencies
 ├── environment.yml        # Conda environment (optional)
-├── .gitignore
+├── .gitignore\
 └── README.md
+</pre>
 
 ---
 
