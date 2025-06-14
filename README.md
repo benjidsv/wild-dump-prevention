@@ -38,12 +38,12 @@ The Wild Dump Prevention (WDP) platform is a lightweight web application that he
 <pre>
 wild-dump-prevention/
 ├── app/
+│   ├── classification/    # Classification logic & models
 │   ├── templates/         # HTML templates (Jinja2)
+│   ├── db/models.py       # Database models
 │   ├── static/            # CSS, JS, uploads
 │   ├── routes.py          # Flask routes
 │   ├── feature_extraction.py
-│   ├── rules.py           # Classification rules
-│   └── db/models.py
 ├── uploads/               # Uploaded images (ignored by Git)
 ├── main.py                # Flask entrypoint (dev)
 ├── run.py                 # Gunicorn entrypoint (prod)

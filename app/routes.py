@@ -3,7 +3,7 @@ from sqlalchemy import func
 from werkzeug.utils import secure_filename
 import os
 from app.feature_extraction import extract_features
-from app.rules import classify_image_by_rules
+from app.classification.classifier import load_model, predict
 from app.db.models import Image, Feature
 from app.extensions import db
 from datetime import datetime
@@ -65,7 +65,7 @@ def upload():
 
         # Extract
         features = extract_features(filepath)
-        label_auto = classify_image_by_rules(features)
+        label_auto = predict(features)
         exif_timestamp = extract_exif_timestamp(filepath)
         timestamp = exif_timestamp or datetime.utcnow()
         location = extract_exif_location(filepath) or ""
