@@ -53,3 +53,13 @@ dist/
 *.egg
 .eggs/
 
+# Model artifacts
+ml/classification/saved_models/
+ml/detection/runs/
+ml/detection/weights/
+*.h5
+*.pt
+*.ckpt
+
+
+

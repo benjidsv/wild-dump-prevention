@@ -53,7 +53,7 @@ def extract_exif_timestamp(image_path):
 main = Blueprint('main', __name__)
 @main.route("/")
 def index():
-    return redirect(url_for("main.upload"))
+    return redirect(url_for("main.dashboard"))
 
 @main.route("/upload", methods=["GET", "POST"])
 def upload():
@@ -80,7 +80,7 @@ def upload():
 
     # GET: show upload form and list of saved images
     images = Image.query.all()
-    return render_template("index.html", images=images)
+    return render_template("upload.html", images=images)
 
 @main.route("/confirm", methods=["POST"])
 def confirm_upload():

@@ -19,8 +19,22 @@ The Wild Dump Prevention (WDP) platform is a lightweight web application that he
 ---
 
 ## 🚀 TODO
+Features:
 - "Secure mode" which forces the user to take the picture now ensuring the accuracy of the data (timestamp, location etc.)
 - Batch upload for admins
+
+Classification:
+
+| Component               | Model/Tool               |
+| ----------------------- | ------------------------ |
+| **Classifier**          | EfficientNetB0/MobileNet |
+| **Detector**            | YOLOv5s                  |
+| **Explainability**      | Grad-CAM for classifier  |
+| **Rule logic / hybrid** | Detector → decision      |
+| **Flask backend**       | API + inference          |
+| **Dashboard**           | Upload stats + map viz   |
+| **Augmentation tool**   | Albumentations CLI       |
+
 
 ## ⚙️ Tech Stack
 
@@ -45,12 +59,24 @@ wild-dump-prevention/
 │   ├── routes.py          # Flask routes
 │   ├── feature_extraction.py
 ├── uploads/               # Uploaded images (ignored by Git)
+├── ml/
+│   ├── classification/      # Binary classifier
+│   │   ├── train.py
+│   │   ├── dataset/         # Only for classifier
+│   │   └── saved_models/
+│   ├── detection/           # YOLO detector
+│   │   ├── train.py
+│   │   ├── runs/
+│   │   └── dataset/         # Annotated YOLO data
+│   ├── explainability/      # Grad-CAM / interpretability
+├── data/                    # Raw images (clean/dirty)
+│   ├── annotations/         # CSVs or YOLO label files
 ├── main.py                # Flask entrypoint (dev)
 ├── run.py                 # Gunicorn entrypoint (prod)
 ├── config.py              # Configurations (dev/prod)
 ├── requirements.txt       # Pip dependencies
-├── environment.yml        # Conda environment (optional)
-├── .gitignore\
+├── .env, .envexample      # Environment variables
+├── .gitignore
 └── README.md
 </pre>
 

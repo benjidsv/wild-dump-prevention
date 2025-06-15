@@ -2,7 +2,7 @@
 {% block title %}Upload{% endblock %}
 {% block content %}
 
-<form method="POST" enctype="multipart/form-data" action="{{ url_for('main.upload') }}">
+<form method="POST" enctype="multipart/form-data" action="{{ url_for('main.upload') }}" class="mb-3">
   <div class="mb-3">
     <label for="image" class="form-label">Choisir une image</label>
     <input type="file" name="image" class="form-control" required>
@@ -10,7 +10,9 @@
   <button type="submit" class="btn btn-primary">Envoyer</button>
 </form>
 
+{% if images %}
 <h2>Images Uploadées</h2>
+{% endif %}
 <div class="row">
     {% for img in images %}
     <div class="col-md-3">
@@ -23,6 +25,8 @@
     {% endif %}
         </p>
     </div>
+    {% else %}
+    <strong>Vous n'avez pas encore uploadé d'images.</strong>
     {% endfor %}
 </div>
 
