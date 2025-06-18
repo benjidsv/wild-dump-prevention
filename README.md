@@ -87,12 +87,26 @@ wild-dump-prevention/
    ```bash
    pip install -r requirements.txt
    ```
-2. **Configure PostgreSQL** (run in `psql`)
-   ```sql
-   CREATE DATABASE wdp_db;
-   CREATE USER wdp_user WITH PASSWORD 'wdp_pass';
-   GRANT ALL PRIVILEGES ON DATABASE wdp_db TO wdp_user;
-   ```
+2. **Configure PostgreSQL**
+   - **For Unix-like systems (Linux/macOS)**, run in `psql`:
+     ```sql
+     CREATE DATABASE wdp_db;
+     CREATE USER wdp_user WITH PASSWORD 'wdp_pass';
+     GRANT ALL PRIVILEGES ON DATABASE wdp_db TO wdp_user;
+     ```
+   - **For Windows**, after creating the database and user as shown for Unix, you might need to grant additional privileges. First, connect to your database using `psql`:
+     ```bash
+     psql -U postgres -d wdp_db
+     ```
+     Then, execute the following commands inside the `psql` shell:
+     ```sql
+     GRANT ALL PRIVILEGES ON DATABASE wdp_db TO wdp_user;
+     GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO wdp_user;
+     GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO wdp_user;
+     GRANT USAGE ON SCHEMA public TO wdp_user;
+     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO wdp_user;
+     GRANT CREATE ON SCHEMA public TO wdp_user;
+     ```
 3. **Set environment variables**
    ```bash
    cp .envexample .env
