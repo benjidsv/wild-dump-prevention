@@ -112,7 +112,16 @@ wild-dump-prevention/
    cp .envexample .env
    # Edit SECRET_KEY or DATABASE_URL if needed
    ```
-4. **Run the application**
+
+4. **Run flask shell
+   ```bash
+   flask shell
+   >>> from app.extensions import db
+   >>> db.create_all()
+   ```
+   ```
+   
+6. **Run the application**
    ```bash
    python main.py        # development
    # or
