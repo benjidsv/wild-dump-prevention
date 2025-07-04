@@ -4,15 +4,14 @@
 
 <h2>Vérifiez l’image et ses données</h2>
 
-<img src="{{ url_for('static', filename='uploads/' + filename) }}" class="img-fluid mb-3" style="max-height: 300px;">
+<img src="{{ url_for('static', filename='uploads/' + filename) }}" class="img-fluid mb-3" style="max-height: 300px;" alt="Image uploadée">
 
 <form method="POST" action="{{ url_for('main.confirm_upload') }}">
   <input type="hidden" name="filename" value="{{ filename }}">
   <input type="hidden" name="is_manual" id="is_manual" value="false">
 
   <!-- Label -->
-    <div class="mb-3">
-      <div class="mb-3">
+  <div class="mb-3">
     <label for="label" class="form-label">État de la poubelle</label>
     <div class="d-flex align-items-stretch gap-2">
       <select name="label" id="label" class="form-select flex-grow-1">
@@ -20,131 +19,127 @@
         <option value="empty">Vide</option>
       </select>
 
-      <span id="label-badge"
-      class="btn fw-bold text-white text-center px-0"
-      style="
-        background-color: #0dcaf0;
-        pointer-events: none;
-        width: 100px;
-        height: 38px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: system-ui, sans-serif;
-        padding: 0;
-        line-height: 1;
-      ">
-  auto
-</span>
+      <span id="label-badge" class="btn fw-bold text-white text-center px-0 badge-auto" style="width:100px;height:38px;">Auto</span>
 
-
-
-      <button type="button"
-              class="btn btn-outline-secondary"
-              id="label-reset"
-              onclick="resetLabel()"
-              disabled>
-        Réinitialiser
-      </button>
+      <button type="button" class="btn btn-outline-secondary" id="label-reset" disabled>Réinitialiser</button>
     </div>
   </div>
 
-
   <!-- Timestamp -->
-  <div class="mb-3 d-flex align-items-end">
-    <div class="flex-grow-1 me-2">
-      <label for="timestamp" class="form-label">Date/Heure</label>
-      <input type="datetime-local" name="timestamp" id="timestamp" class="form-control">
+  <div class="mb-3">
+    <label for="timestamp" class="form-label">Date/Heure</label>
+    <div class="d-flex align-items-stretch gap-2">
+      <input type="datetime-local" name="timestamp" id="timestamp" class="form-control flex-grow-1">
+
+      <span id="timestamp-badge" class="btn fw-bold text-white text-center px-0 badge-auto" style="width:100px;height:38px;">Auto</span>
+
+      <button type="button" class="btn btn-outline-secondary" id="timestamp-reset" disabled>Réinitialiser</button>
     </div>
-    <div>
-      <button type="button" class="btn btn-outline-secondary" id="timestamp-reset" onclick="resetTimestamp()" disabled>
-        Réinitialiser
-      </button>
-    </div>
+    <div id="timestamp-warning" class="form-text text-warning d-none">Aucun horodatage détecté automatiquement&nbsp;: veuillez saisir une valeur.</div>
   </div>
 
   <!-- Location -->
-  <div class="mb-3 d-flex align-items-end">
-    <div class="flex-grow-1 me-2">
-      <label for="location" class="form-label">Localisation</label>
-      <input type="text" name="location" id="location" class="form-control" placeholder="Adresse ou coordonnées GPS">
+  <div class="mb-3">
+    <label for="location" class="form-label">Localisation</label>
+    <div class="d-flex align-items-stretch gap-2">
+      <input type="text" name="location" id="location" class="form-control flex-grow-1" placeholder="Adresse ou coordonnées GPS">
+
+      <span id="location-badge" class="btn fw-bold text-white text-center px-0 badge-auto" style="width:100px;height:38px;">Auto</span>
+
+      <button type="button" class="btn btn-outline-secondary" id="location-reset" disabled>Réinitialiser</button>
     </div>
-    <div>
-      <button type="button" class="btn btn-outline-secondary" id="location-reset" onclick="resetLocation()" disabled>
-        Réinitialiser
-      </button>
-    </div>
+    <div id="location-warning" class="form-text text-warning d-none">Aucune localisation détectée automatiquement&nbsp;: veuillez saisir une valeur.</div>
   </div>
 
   <button type="submit" class="btn btn-success">Valider l’image</button>
   <a href="{{ url_for('main.upload') }}" class="btn btn-link">Annuler</a>
 </form>
 
+<style>
+  .badge-auto{
+    background-color:#0dcaf0;
+    pointer-events:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:system-ui,sans-serif;
+    padding:0;
+    line-height:1;
+  }
+</style>
+
 <script>
-  // Pre-filled values injected server-side
-  const autoDetectedLabel = "{{ auto_label }}";
-  const autoDetectedLocation = "{{ auto_location or '' }}";
-  const defaultTimestamp = "{{ default_timestamp }}";
+// Valeurs détectées automatiquement injectées par le serveur
+const autoLabel = "{{ auto_label }}";
+const autoTimestamp = "{{ auto_timestamp or '' }}";
+const autoLocation = "{{ auto_location or '' }}";
 
-  // DOM elements
-  const labelSelect = document.getElementById("label");
-  const timestampInput = document.getElementById("timestamp");
-  const locationInput = document.getElementById("location");
-  const isManualField = document.getElementById("is_manual");
+// Éléments DOM
+const labelSelect = document.getElementById('label');
+const timestampInput = document.getElementById('timestamp');
+const locationInput = document.getElementById('location');
+const isManualField = document.getElementById('is_manual');
 
-  const labelResetBtn = document.getElementById("label-reset");
-  const timestampResetBtn = document.getElementById("timestamp-reset");
-  const locationResetBtn = document.getElementById("location-reset");
-  const labelBadge = document.getElementById("label-badge");
+const labelResetBtn = document.getElementById('label-reset');
+const timestampResetBtn = document.getElementById('timestamp-reset');
+const locationResetBtn = document.getElementById('location-reset');
 
-  // Applies state: badge, hidden field, buttons
-  function updateUI() {
-  const labelChanged = labelSelect.value !== autoDetectedLabel;
-  const timestampChanged = timestampInput.value !== defaultTimestamp;
-  const locationChanged = locationInput.value !== autoDetectedLocation;
+const labelBadge = document.getElementById('label-badge');
+const timestampBadge = document.getElementById('timestamp-badge');
+const locationBadge = document.getElementById('location-badge');
 
-  isManualField.value = labelChanged ? "true" : "false";
+const timestampWarning = document.getElementById('timestamp-warning');
+const locationWarning = document.getElementById('location-warning');
 
-  // Update badge
-  labelBadge.textContent = labelChanged ? "Manuel" : "Auto";
-  labelBadge.style.backgroundColor = labelChanged ? "#6c757d" : "#0dcaf0";
+function updateUI(){
+  const labelChanged = labelSelect.value !== autoLabel;
+  const timestampChanged = timestampInput.value !== autoTimestamp;
+  const locationChanged = locationInput.value !== autoLocation;
 
-  // Reset buttons
+  isManualField.value = (labelChanged || timestampChanged || locationChanged) ? 'true' : 'false';
+
+  const autoColor = '#0dcaf0';
+  const manualColor = '#6c757d';
+
+  labelBadge.textContent = labelChanged ? 'Manuel' : 'Auto';
+  labelBadge.style.backgroundColor = labelChanged ? manualColor : autoColor;
+
+  timestampBadge.textContent = timestampChanged ? 'Manuel' : 'Auto';
+  timestampBadge.style.backgroundColor = timestampChanged ? manualColor : autoColor;
+
+  locationBadge.textContent = locationChanged ? 'Manuel' : 'Auto';
+  locationBadge.style.backgroundColor = locationChanged ? manualColor : autoColor;
+
   labelResetBtn.disabled = !labelChanged;
   timestampResetBtn.disabled = !timestampChanged;
   locationResetBtn.disabled = !locationChanged;
+
+  const showTimestampWarning = autoTimestamp === '' && timestampInput.value === '';
+  const showLocationWarning = autoLocation === '' && locationInput.value === '';
+  timestampWarning.classList.toggle('d-none', !showTimestampWarning);
+  locationWarning.classList.toggle('d-none', !showLocationWarning);
 }
 
-  // Reset functions
-  function resetLabel() {
-    labelSelect.value = autoDetectedLabel;
-    updateUI();
-  }
+function resetLabel(){labelSelect.value = autoLabel; updateUI();}
+function resetTimestamp(){timestampInput.value = autoTimestamp; updateUI();}
+function resetLocation(){locationInput.value = autoLocation; updateUI();}
 
-  function resetTimestamp() {
-    timestampInput.value = defaultTimestamp;
-    updateUI();
-  }
+window.addEventListener('DOMContentLoaded', ()=>{
+  labelSelect.value = autoLabel;
+  timestampInput.value = autoTimestamp;
+  locationInput.value = autoLocation;
+  updateUI();
 
-  function resetLocation() {
-    locationInput.value = autoDetectedLocation;
-    updateUI();
-  }
+  // Listeners
+  labelSelect.addEventListener('change', updateUI);
+  timestampInput.addEventListener('input', updateUI);
+  locationInput.addEventListener('input', updateUI);
 
-  // Initialize on page load
-  window.addEventListener("DOMContentLoaded", () => {
-    labelSelect.value = autoDetectedLabel;
-    timestampInput.value = defaultTimestamp;
-    locationInput.value = autoDetectedLocation;
-    updateUI();
-  });
-
-  // Event listeners
-  labelSelect.addEventListener("change", updateUI);
-  timestampInput.addEventListener("input", updateUI);
-  locationInput.addEventListener("input", updateUI);
+  // Reset buttons
+  labelResetBtn.addEventListener('click', resetLabel);
+  timestampResetBtn.addEventListener('click', resetTimestamp);
+  locationResetBtn.addEventListener('click', resetLocation);
+});
 </script>
-
-
 
 {% endblock %}

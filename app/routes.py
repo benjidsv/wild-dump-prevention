@@ -1,9 +1,11 @@
+import uuid
+
+import cv2
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash, session
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
 import os
-from app.feature_extraction import extract_features
-from app.classification.classifier import load_model, predict
+from app.classification.rules import classify_image_by_rules
 from app.db.models import Image, Feature, User
 from app.extensions import db
 from datetime import datetime
@@ -51,6 +53,7 @@ def extract_exif_timestamp(image_path):
 
         return None
 
+<<<<<<< HEAD
 # --------- Décorateur pour accès admin ---------
 
 def admin_required(f):
@@ -71,6 +74,8 @@ def admin_required(f):
     return decorated_function
 
 
+=======
+>>>>>>> 44420b0d25c074e6790a4d35971788f95ad9a1c5
 main = Blueprint('main', __name__)
 @main.route("/")
 def index():
@@ -80,19 +85,66 @@ def index():
 @admin_required
 def upload():
     if request.method == "POST":
+        print("post upload")
+        if 'images' in request.files:
+            # We're uploading multiple images
+            files = request.files.getlist('images')
+            filenames = []
+            labels = []
+            timestamps = []
+            locations = []
+            for file in files:
+                filename = secure_filename(file.filename)
+                filenames.append(filename)
+                filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+                file.save(filepath)
+
+                # Feature extraction
+                label_auto = classify_image_by_rules(filepath)
+                labels.append(label_auto)
+                exif_timestamp = extract_exif_timestamp(filepath)
+                timestamp = exif_timestamp or datetime.utcnow()
+                timestamps.append(timestamp.strftime("%Y-%m-%dT%H:%M"))
+                location = extract_exif_location(filepath) or ""
+                locations.append(location)
+
+            # We render the confirm step for multiple images
+            return render_template("confirm_upload_multiple.html",
+            filenames=filenames,
+            auto_labels=labels,
+            auto_timestamps=timestamps,
+            auto_locations=locations
+        )
+
+        if 'video' in request.files:
+            video_file = request.files["video"]
+            if not video_file:
+                flash("Aucun fichier", "danger")
+                return redirect(request.url)
+
+            filename = secure_filename(video_file.filename)
+            filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+            video_file.save(filepath)
+
+            # On montre maintenant le lecteur vidéo
+            return render_template(
+                "select_timestamps.html",
+                video_filename=filename
+            )
+
+        # We're uploading one image
         file = request.files["image"]
         filename = secure_filename(file.filename)
         filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
 
-        # Extract
-        features = extract_features(filepath)
-        label_auto = predict(features)
+        # Feature extraction
+        label_auto = classify_image_by_rules(filepath)
         exif_timestamp = extract_exif_timestamp(filepath)
         timestamp = exif_timestamp or datetime.utcnow()
         location = extract_exif_location(filepath) or ""
 
-        # Render confirm step
+        # Render confirm step for one image
         return render_template("confirm_upload.html",
             filename=filename,
             auto_label=label_auto,
@@ -101,11 +153,13 @@ def upload():
         )
 
     # GET: show upload form and list of saved images
+    print("get upload")
     images = Image.query.all()
     return render_template("upload.html", images=images)
 
 @main.route("/confirm", methods=["POST"])
 def confirm_upload():
+    print("post confirm upload")
     filename = request.form.get("filename")
     label = request.form.get("label")
     is_manual = request.form.get("is_manual") == "true"
@@ -113,7 +167,6 @@ def confirm_upload():
     location = request.form.get("location")
 
     filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-    features = extract_features(filepath)
 
     timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M")
 
@@ -127,11 +180,80 @@ def confirm_upload():
     db.session.add(img)
     db.session.commit()
 
-    feat = Feature(image_id=img.id, **features)
-    db.session.add(feat)
-    db.session.commit()
-
     return redirect(url_for("main.upload"))
+
+@main.route("/confirm_multiple", methods=["POST"])
+def confirm_upload_multiple():
+    print("post confirm upload multiple")
+
+    filenames = request.form.getlist("filenames")
+
+    for idx, filename in enumerate(filenames):
+        # ---- form values ---------------------------------------------------
+        label = request.form.get(f"label_{idx}")  # "full" / "empty"
+        is_manual = request.form.get(f"is_manual_{idx}") == "true"
+        ts_str = request.form.get(f"timestamp_{idx}") or ""  # may be ""
+        location = request.form.get(f"location_{idx}") or ""
+
+        # ---- timestamp parsing --------------------------------------------
+        try:
+            timestamp = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M") if ts_str else datetime.utcnow()
+        except ValueError:
+            # Fallback if the browser sends an unexpected format
+            timestamp = datetime.utcnow()
+
+        # ---- file & feature extraction ------------------------------------
+        filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+
+        # ---- create DB rows -----------------------------------------------
+        img = Image(
+            path=f"uploads/{filename}",
+            label=label,
+            is_manual=is_manual,
+            timestamp=timestamp,
+            location=location
+        )
+        db.session.add(img)
+
+    # 2) one commit for all rows
+    db.session.commit()
+    return redirect(url_for("main.upload"))
+
+@main.route("/extract_from_video", methods=["POST"])
+def extract_from_video():
+    video_name = request.args.get("video")
+    ts_list = [float(t) for t in request.form.getlist("timestamps")]
+
+    video_path = os.path.join(current_app.config["UPLOAD_FOLDER"], video_name)
+    cap = cv2.VideoCapture(video_path)
+    saved_frames, labels, timestamps, locations = [], [], [], []
+
+    for sec in ts_list:
+        cap.set(cv2.CAP_PROP_POS_MSEC, sec * 1000)
+        ok, frame = cap.read()
+        if not ok:
+            continue
+        img_name = f"frame_{uuid.uuid4().hex}.jpg"
+        img_path = os.path.join(current_app.config['UPLOAD_FOLDER'], img_name)
+        cv2.imwrite(img_path, frame)
+        saved_frames.append(img_name)
+
+        # Auto-détection pour chaque frame
+        labels.append(classify_image_by_rules(img_path))
+        ts_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M")
+        timestamps.append(ts_iso)
+        locations.append("")   # ou ta fonction EXIF si besoin
+
+    cap.release()
+
+    # On réutilise ton template multiple
+    return render_template(
+        "confirm_upload_multiple.html",
+        filenames=saved_frames,
+        auto_labels=labels,
+        auto_timestamps=timestamps,
+        auto_locations=locations
+    )
 
 @main.route("/annotate/<int:image_id>", methods=["GET", "POST"])
 def annotate(image_id):
