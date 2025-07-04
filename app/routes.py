@@ -1,18 +1,22 @@
+import time
 import uuid
 
 import cv2
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash, session
+from geopy.exc import GeocoderServiceError
+from geopy.extra.rate_limiter import RateLimiter
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
 import os
 from app.classification.rules import classify_image_by_rules
-from app.db.models import Image, User
+from app.db.models import Image, User, Location
 from app.extensions import db
 from datetime import datetime
 from PIL import Image as PILImage
 from PIL.ExifTags import TAGS, GPSTAGS
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+from geopy.geocoders import Nominatim
 
 def extract_exif_location(image_path):
     img = PILImage.open(image_path)
@@ -52,6 +56,45 @@ def extract_exif_timestamp(image_path):
                 return datetime.strptime(value, "%Y:%m:%d %H:%M:%S")
 
         return None
+
+def add_image_to_db(filename, address, timestamp_str, label, is_manual):
+    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M")
+
+    # If the location is already in the db, no need to recreate
+    location = (
+        Location.query.filter_by(address=address).first()
+        if address else None
+    )
+
+    # Else geocode it
+    if not location and address:
+        geolocator = Nominatim(user_agent="wild-dump-prevention/1.0", timeout=5)
+        try:
+            # Nominatim courtesy delay: 1 req/sec max from one client
+            time.sleep(1.1)
+            loc = geolocator.geocode(address, exactly_one=True)
+        except GeocoderServiceError:
+            print("GeocoderServiceError")
+            loc = None
+
+        lat = float(loc.latitude) if loc else None
+        lon = float(loc.longitude) if loc else None
+
+        location = Location(address=address, latitude=lat, longitude=lon)
+        db.session.add(location)
+        db.session.flush()
+
+    img = Image(
+        path=os.path.join(current_app.config["UPLOAD_FOLDER"], filename),
+        label=label,
+        is_manual=is_manual,
+        timestamp=timestamp,
+        location=location,
+        user_id=session.get("user_id")
+    )
+    db.session.add(img)
+    db.session.commit()
+
 
 # --------- Décorateur pour accès admin ---------
 def admin_required(f):
@@ -160,21 +203,9 @@ def confirm_upload():
     label = request.form.get("label")
     is_manual = request.form.get("is_manual") == "true"
     timestamp_str = request.form.get("timestamp")
-    location = request.form.get("location")
+    address = request.form.get("location").strip()
 
-    filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-
-    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M")
-
-    img = Image(
-        path=f"uploads/{filename}",
-        label=label,
-        is_manual=is_manual,
-        timestamp=timestamp,
-        location=location
-    )
-    db.session.add(img)
-    db.session.commit()
+    add_image_to_db(filename, address, timestamp_str, label, is_manual)
 
     return redirect(url_for("main.upload"))
 
@@ -188,28 +219,10 @@ def confirm_upload_multiple():
         # ---- form values ---------------------------------------------------
         label = request.form.get(f"label_{idx}")  # "full" / "empty"
         is_manual = request.form.get(f"is_manual_{idx}") == "true"
-        ts_str = request.form.get(f"timestamp_{idx}") or ""  # may be ""
-        location = request.form.get(f"location_{idx}") or ""
+        timestamp_str = request.form.get(f"timestamp_{idx}") or ""  # may be ""
+        address = request.form.get(f"location_{idx}") or ""
 
-        # ---- timestamp parsing --------------------------------------------
-        try:
-            timestamp = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M") if ts_str else datetime.utcnow()
-        except ValueError:
-            # Fallback if the browser sends an unexpected format
-            timestamp = datetime.utcnow()
-
-        # ---- file & feature extraction ------------------------------------
-        filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-
-        # ---- create DB rows -----------------------------------------------
-        img = Image(
-            path=f"uploads/{filename}",
-            label=label,
-            is_manual=is_manual,
-            timestamp=timestamp,
-            location=location
-        )
-        db.session.add(img)
+        add_image_to_db(filename, address, timestamp_str, label, is_manual)
 
     # 2) one commit for all rows
     db.session.commit()
@@ -304,7 +317,7 @@ def dashboard():
     all_locations = [r[0] for r in db.session.query(Image.location).distinct().all() if r[0]]
 
     # Récupérer les images filtrées avec localisation non nulle
-    images_filtered = query.filter(Image.location.isnot(None)).all()
+    images_filtered = query.filter(Image.location is not None).all()
 
     locations_coords = []
     for img in images_filtered:
@@ -321,7 +334,9 @@ def dashboard():
                 # En cas d'erreur dans le format GPS, on ignore
                 continue
 
-    return render_template("dashboard.html", stats=stats, locations=all_locations)
+    print(stats)
+    print(all_locations)
+    return render_template("dashboard.html", stats=stats, locations=all_locations, locations_coords=locations_coords)
 
 @main.route("/register", methods=["GET", "POST"])
 def register():
@@ -347,7 +362,7 @@ def register():
             return render_template("register.html", error=error_msg, name=name, email=email)
 
         # Création de l'utilisateur
-        user = User(name=name, mail=email, password=hashed_password)
+        user = User(name=name, mail=email, password=hashed_password, is_admin=True)
         db.session.add(user)
         db.session.commit()
 
