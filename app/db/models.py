@@ -8,6 +8,7 @@ class Image(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)  # ✅ New
     location = db.Column(db.String(100))
     is_manual = db.Column(db.Boolean, default=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     features = db.relationship("Feature", backref="image", uselist=False)
 
@@ -20,4 +21,12 @@ class Feature(db.Model):
     avg_r = db.Column(db.Integer)
     avg_g = db.Column(db.Integer)
     avg_b = db.Column(db.Integer)
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200))
+    mail = db.Column(db.String(200))
+    password = db.Column(db.String(300))
+
+    images = db.relationship("Image", backref="user", lazy=True)
 

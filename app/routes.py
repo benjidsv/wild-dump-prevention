@@ -1,14 +1,15 @@
-from flask import Blueprint, render_template, request, redirect, url_for, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash, session
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
 import os
 from app.feature_extraction import extract_features
 from app.classification.classifier import load_model, predict
-from app.db.models import Image, Feature
+from app.db.models import Image, Feature, User
 from app.extensions import db
 from datetime import datetime
 from PIL import Image as PILImage
 from PIL.ExifTags import TAGS, GPSTAGS
+from werkzeug.security import generate_password_hash, check_password_hash
 
 def extract_exif_location(image_path):
     img = PILImage.open(image_path)
@@ -162,3 +163,54 @@ def dashboard():
     all_locations = [r[0] for r in db.session.query(Image.location).distinct().all() if r[0]]
 
     return render_template("dashboard.html", stats=stats, locations=all_locations)
+
+@main.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        name = request.form.get("name")
+        email = request.form.get("email")
+        password = request.form.get("password")
+
+        # Hash du mot de passe
+        hashed_password = generate_password_hash(password)
+
+        # Vérifie d'abord l'adresse mail, puis le nom d'utilisateur pour fournir un message précis
+        existing_email = User.query.filter_by(mail=email).first()
+        if existing_email:
+            error_msg = "Cette adresse mail est déjà utilisée."
+            flash(error_msg, "danger")
+            return render_template("register.html", error=error_msg, name=name, email=email)
+
+        existing_username = User.query.filter_by(name=name).first()
+        if existing_username:
+            error_msg = "Ce nom d'utilisateur est déjà pris."
+            flash(error_msg, "danger")
+            return render_template("register.html", error=error_msg, name=name, email=email)
+
+        # Création de l'utilisateur
+        user = User(name=name, mail=email, password=hashed_password)
+        db.session.add(user)
+        db.session.commit()
+
+        flash("Compte créé avec succès !", "success")
+        return redirect(url_for("main.index"))
+
+    return render_template("register.html")
+
+@main.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+
+        user = User.query.filter_by(mail=email).first()
+        if user and check_password_hash(user.password, password):
+            session["user_id"] = user.id
+            flash("Connexion réussie !", "success")
+            return redirect(url_for("main.dashboard"))
+
+        error_msg = "Email ou mot de passe incorrect."
+        flash(error_msg, "danger")
+        return render_template("login.html", error=error_msg, email=email)
+
+    return render_template("login.html")
