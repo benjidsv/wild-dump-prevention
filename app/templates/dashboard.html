@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }).addTo(map);
 
   const locations = {{ locations_coords|tojson|default('[]', true) }};
+  console.log(locations);
   locations.forEach(loc => {
     if (loc.lat == null || loc.lon == null) return;
     const pinColor = loc.label === 'full' ? 'red' :

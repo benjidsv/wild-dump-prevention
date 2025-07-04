@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, curren
 from geopy.exc import GeocoderServiceError
 from geopy.extra.rate_limiter import RateLimiter
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 import os
 from app.classification.rules import classify_image_by_rules
@@ -280,64 +281,77 @@ def annotate(image_id):
 
 @main.route("/dashboard")
 def dashboard():
-    start_date_str = request.args.get("start_date")
-    end_date_str = request.args.get("end_date")
-    location_filter = request.args.get("location")
+    start_date_str   = request.args.get("start_date")
+    end_date_str     = request.args.get("end_date")
+    location_filter  = request.args.get("location")
 
-    query = Image.query
+    # -------------------------------------------------- #
+    # Base query (eager-load Location to avoid N+1)
+    # -------------------------------------------------- #
+    query = (
+        Image.query
+        .options(joinedload(Image.location))
+        .filter(Image.location_id.isnot(None))          # only images with a location row
+    )
 
-    # Appliquer les filtres de date
+    # ---------------- Date filter --------------------- #
     if start_date_str and end_date_str:
         try:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
-            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
-            query = query.filter(Image.timestamp >= start_date, Image.timestamp <= end_date)
+            end_date   = datetime.strptime(end_date_str,   "%Y-%m-%d")
+            query = query.filter(
+                Image.timestamp.between(start_date, end_date)
+            )
         except ValueError:
-            pass
+            pass  # silently ignore bad date format
 
-    # Filtrer par localisation partielle (texte)
+    # ---------------- Address filter ------------------ #
     if location_filter:
-        query = query.filter(Image.location.ilike(f"%{location_filter}%"))
+        query = (
+            query.join(Image.location)
+                 .filter(Location.address.ilike(f"%{location_filter}%"))
+        )
 
-    # Calcul des stats pour le graphique camembert
+    # -------------- Pie-chart stats ------------------- #
     label_counts = (
         query.with_entities(Image.label, func.count(Image.id))
-        .group_by(Image.label)
-        .all()
+             .group_by(Image.label)
+             .all()
     )
-
     stats = {"full": 0, "empty": 0}
     for label, count in label_counts:
         if label == "full":
-            stats["full"] = count
+            stats["full"]  = count
         elif label == "empty":
             stats["empty"] = count
 
-    # Liste distincte des localisations pour un éventuel filtre/déploiement UI
-    all_locations = [r[0] for r in db.session.query(Image.location).distinct().all() if r[0]]
+    # ------------- Distinct addresses ----------------- #
+    all_locations = (
+        db.session.query(Location.address)
+        .join(Image)
+        .distinct()
+        .order_by(Location.address)
+        .all()
+    )
+    all_locations = [addr for (addr,) in all_locations]
 
-    # Récupérer les images filtrées avec localisation non nulle
-    images_filtered = query.filter(Image.location is not None).all()
-
+    # ------------- Map markers ------------------------ #
     locations_coords = []
-    for img in images_filtered:
-        if img.location:
-            try:
-                lat_str, lon_str = img.location.split(",")
-                lat, lon = float(lat_str), float(lon_str)
-                locations_coords.append({
-                    "lat": lat,
-                    "lon": lon,
-                    "label": img.label or "non défini"
-                })
-            except Exception:
-                # En cas d'erreur dans le format GPS, on ignore
-                continue
+    for img in query:                          # already filtered & eager-loaded
+        loc = img.location
+        if loc and loc.latitude is not None and loc.longitude is not None:
+            locations_coords.append({
+                "lat":  float(loc.latitude),
+                "lon":  float(loc.longitude),
+                "label": img.label or "non défini"
+            })
 
-    print(stats)
-    print(all_locations)
-    return render_template("dashboard.html", stats=stats, locations=all_locations, locations_coords=locations_coords)
-
+    return render_template(
+        "dashboard.html",
+        stats=stats,
+        locations=all_locations,
+        locations_coords=locations_coords
+    )
 @main.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
