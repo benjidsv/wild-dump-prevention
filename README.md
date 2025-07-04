@@ -20,21 +20,10 @@ The Wild Dump Prevention (WDP) platform is a lightweight web application that he
 
 ## 🚀 TODO
 Features:
-- "Secure mode" which forces the user to take the picture now ensuring the accuracy of the data (timestamp, location etc.)
-- Batch upload for admins
-
-Classification:
-
-| Component               | Model/Tool               |
-| ----------------------- | ------------------------ |
-| **Classifier**          | EfficientNetB0/MobileNet |
-| **Detector**            | YOLOv5s                  |
-| **Explainability**      | Grad-CAM for classifier  |
-| **Rule logic / hybrid** | Detector → decision      |
-| **Flask backend**       | API + inference          |
-| **Dashboard**           | Upload stats + map viz   |
-| **Augmentation tool**   | Albumentations CLI       |
-
+- Secure user upload which forces the user to take the picture now ensuring the accuracy of the data (timestamp, location etc.)
+- Batch admin upload
+- Upload videos and select timestamps
+- 
 
 ## ⚙️ Tech Stack
 
@@ -113,12 +102,12 @@ wild-dump-prevention/
    # Edit SECRET_KEY or DATABASE_URL if needed
    ```
 
-4. **Run flask shell
+4. **Run flask shell**
    ```bash
    flask shell
    >>> from app.extensions import db
+   >>> from app.db.models import Feature, Image
    >>> db.create_all()
-   ```
    ```
    
 6. **Run the application**

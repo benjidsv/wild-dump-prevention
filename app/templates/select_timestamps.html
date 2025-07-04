@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Choisir les instants{% endblock %}
+{% block content %}
+
+<h2>Sélectionnez les instants à capturer</h2>
+
+<!-- Lecteur vidéo -->
+<video id="vid" controls style="max-width: 100%; border:1px solid #ccc;">
+  <source src="{{ url_for('static', filename='uploads/' + video_filename) }}" type="video/mp4">
+  Votre navigateur ne supporte pas la vidéo HTML5.
+</video>
+
+<!-- Bouton pour ajouter un timestamp -->
+<div class="my-3">
+  <button id="add-btn" class="btn btn-primary">
+    📸 Ajouter l'instant courant
+  </button>
+</div>
+
+<!-- Liste des temps sélectionnés -->
+<ul id="ts-list" class="list-group mb-3"></ul>
+
+<form id="confirm-form" method="POST"
+      action="{{ url_for('main.extract_from_video', video=video_filename) }}">
+  <!-- les <input type=hidden name="timestamps"> seront injectés ici -->
+  <button type="submit" class="btn btn-success" disabled id="confirm-btn">
+    Extraire les images sélectionnées
+  </button>
+  <a href="{{ url_for('main.upload') }}" class="btn btn-link">Annuler</a>
+</form>
+
+<script>
+const vid = document.getElementById("vid");
+const addBtn = document.getElementById("add-btn");
+const tsList = document.getElementById("ts-list");
+const form = document.getElementById("confirm-form");
+const confirmBtn = document.getElementById("confirm-btn");
+
+function formatTime(sec) {
+  return new Date(sec * 1000).toISOString().substr(11, 8);
+}
+
+addBtn.addEventListener("click", e => {
+  e.preventDefault();
+  const t = vid.currentTime;                       // secondes flottantes
+  const li = document.createElement("li");
+  li.className = "list-group-item d-flex justify-content-between align-items-center";
+  li.textContent = formatTime(t);
+
+  // bouton supprimer
+  const del = document.createElement("button");
+  del.className = "btn btn-sm btn-outline-danger";
+  del.textContent = "×";
+  del.onclick = () => { li.remove(); refreshForm(); };
+  li.appendChild(del);
+
+  tsList.appendChild(li);
+  refreshForm();
+});
+
+function refreshForm() {
+  // vider les anciens inputs
+  form.querySelectorAll("input[name='timestamps']").forEach(el => el.remove());
+
+  // recréer les inputs dans l'ordre
+  [...tsList.children].forEach(li => {
+    const seconds = li.firstChild.textContent
+                      .split(':').reduce((p,c)=>60*p+ +c, 0); // HH:MM:SS -> s
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "timestamps";
+    input.value = seconds;      // on enverra les secondes au backend
+    form.appendChild(input);
+  });
+
+  confirmBtn.disabled = tsList.children.length === 0;
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Accès refusé - WDP{% endblock %}
+
+{% block content %}
+<meta http-equiv="refresh" content="3;url={{ url_for('main.dashboard') }}">
+<div class="alert alert-danger text-center" role="alert">
+    <h4 class="alert-heading">Accès refusé</h4>
+    <p>Vous n'avez pas les droits nécessaires pour accéder à cette page.</p>
+    <hr>
+    <p class="mb-0">Vous allez être redirigé vers le tableau de bord dans 3&nbsp;secondes…</p>
+</div>
+{% endblock %} 
