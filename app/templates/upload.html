@@ -2,13 +2,49 @@
 {% block title %}Upload{% endblock %}
 {% block content %}
 
+<div class="btn-group mb-3" role="group" aria-label="Upload mode">
+    <input type="radio" class="btn-check" name="uploadMode" id="singleMode" value="single" autocomplete="off" checked onchange="setUploadMode()">
+    <label class="btn btn-outline-primary" for="singleMode">Unitaire</label>
+
+    <input type="radio" class="btn-check" name="uploadMode" id="batchMode" value="batch" autocomplete="off" onchange="setUploadMode()">
+    <label class="btn btn-outline-primary" for="batchMode">Multiple</label>
+
+    <input type="radio" class="btn-check" name="uploadMode" id="videoMode" value="video" autocomplete="off" onchange="setUploadMode()">
+    <label class="btn btn-outline-primary" for="videoMode">Vidéo</label>
+</div>
+
+<!-- Upload form -->
 <form method="POST" enctype="multipart/form-data" action="{{ url_for('main.upload') }}" class="mb-3">
   <div class="mb-3">
-    <label for="image" class="form-label">Choisir une image</label>
-    <input type="file" name="image" class="form-control" required>
+    <label for="imageInput" class="form-label" id="uploadLabel">Choisir une image</label>
+    <input type="file" name="image" class="form-control" id="imageInput" required>
   </div>
   <button type="submit" class="btn btn-primary">Envoyer</button>
 </form>
+
+<script>
+function setUploadMode() {
+    const multiple = document.getElementById("batchMode").checked;
+    const video = document.getElementById("videoMode").checked;
+    const input = document.getElementById("imageInput");
+    const label = document.getElementById("uploadLabel");
+    input.value = "";
+
+    if (multiple) {
+        input.setAttribute("multiple", "multiple");
+        input.setAttribute("name", "images");
+        label.textContent = "Choisir des images"
+    } else if (video) {
+        input.removeAttribute("multiple");
+        input.setAttribute("name", "video")
+        label.textContent = "Choisir une vidéo"
+    } else {
+        input.removeAttribute("multiple");
+        input.setAttribute("name", "image");
+        label.textContent = "Choisir une image"
+    }
+}
+</script>
 
 {% if images %}
 <h2>Images Uploadées</h2>
