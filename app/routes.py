@@ -53,9 +53,7 @@ def extract_exif_timestamp(image_path):
 
         return None
 
-<<<<<<< HEAD
 # --------- Décorateur pour accès admin ---------
-
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -73,9 +71,6 @@ def admin_required(f):
 
     return decorated_function
 
-
-=======
->>>>>>> 44420b0d25c074e6790a4d35971788f95ad9a1c5
 main = Blueprint('main', __name__)
 @main.route("/")
 def index():
@@ -187,7 +182,6 @@ def confirm_upload_multiple():
     print("post confirm upload multiple")
 
     filenames = request.form.getlist("filenames")
-
     for idx, filename in enumerate(filenames):
         # ---- form values ---------------------------------------------------
         label = request.form.get(f"label_{idx}")  # "full" / "empty"
