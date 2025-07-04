@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Confirmation Upload Multiple{% endblock %}
+{% block content %}
+
+<h2 class="mb-4">Confirmer les images uploadées</h2>
+
+<form method="POST" action="{{ url_for('main.confirm_upload_multiple') }}">
+  {% for filename in filenames %}
+  <div class="card mb-3">
+    <div class="card-body">
+
+      <h5 class="card-title">{{ filename }}</h5>
+      <input type="hidden" name="filenames" value="{{ filename }}">
+
+      <!-- Label choice -->
+      <div class="mb-3">
+        <label class="form-label">Annotation (pleine / vide)</label>
+        <select class="form-select" name="label_mode_{{ loop.index0 }}">
+          <option value="auto" selected>Utiliser la valeur automatique</option>
+          <option value="manual">Définir manuellement</option>
+        </select>
+      </div>
+
+      <!-- Timestamp choice -->
+      <div class="mb-3">
+        <label class="form-label">Horodatage</label>
+        <select class="form-select" name="timestamp_mode_{{ loop.index0 }}">
+          <option value="auto" selected>Utiliser la valeur automatique</option>
+          <option value="manual">Définir manuellement</option>
+        </select>
+      </div>
+
+      <!-- Location choice -->
+      <div class="mb-3">
+        <label class="form-label">Localisation</label>
+        <select class="form-select" name="location_mode_{{ loop.index0 }}">
+          <option value="auto" selected>Utiliser la valeur automatique</option>
+          <option value="manual">Définir manuellement</option>
+        </select>
+      </div>
+
+    </div>
+  </div>
+  {% endfor %}
+
+  <div class="text-end">
+    <button type="submit" class="btn btn-success">Valider</button>
+  </div>
+</form>
+
+{% endblock %}

@@ -49,7 +49,6 @@ def extract_exif_timestamp(image_path):
 
         return None
 
-
 main = Blueprint('main', __name__)
 @main.route("/")
 def index():
@@ -58,6 +57,34 @@ def index():
 @main.route("/upload", methods=["GET", "POST"])
 def upload():
     if request.method == "POST":
+        if 'images' in request.files:
+            files = request.files.getlist('images')
+            filenames = []
+            labels = []
+            timestamps = []
+            locations = []
+            for file in files:
+                filename = secure_filename(file.filename)
+                filenames.append(filename)
+                filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+                file.save(filepath)
+
+                features = extract_features(filepath)
+                label_auto = predict(features)
+                labels.append(label_auto)
+                exif_timestamp = extract_exif_timestamp(filepath)
+                timestamp = exif_timestamp or datetime.utcnow()
+                timestamps.append(timestamp.strftime("%Y-%m-%dT%H:%M"))
+                location = extract_exif_location(filepath) or ""
+                locations.append(location)
+
+            return render_template("confirm_upload_multiple.html",
+            filenames=filenames,
+            labels=labels,
+            auto_timestamps=timestamps,
+            auto_locations=locations
+        )
+
         file = request.files["image"]
         filename = secure_filename(file.filename)
         filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
@@ -84,6 +111,35 @@ def upload():
 
 @main.route("/confirm", methods=["POST"])
 def confirm_upload():
+    filename = request.form.get("filename")
+    label = request.form.get("label")
+    is_manual = request.form.get("is_manual") == "true"
+    timestamp_str = request.form.get("timestamp")
+    location = request.form.get("location")
+
+    filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+    features = extract_features(filepath)
+
+    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M")
+
+    img = Image(
+        path=f"uploads/{filename}",
+        label=label,
+        is_manual=is_manual,
+        timestamp=timestamp,
+        location=location
+    )
+    db.session.add(img)
+    db.session.commit()
+
+    feat = Feature(image_id=img.id, **features)
+    db.session.add(feat)
+    db.session.commit()
+
+    return redirect(url_for("main.upload"))
+
+@main.route("/confirm_multiple", methods=["POST"])
+def confirm_upload_multiple():
     filename = request.form.get("filename")
     label = request.form.get("label")
     is_manual = request.form.get("is_manual") == "true"
