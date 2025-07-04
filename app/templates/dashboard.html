@@ -2,55 +2,86 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 
-<h2>📊 Statistiques de tri</h2>
+<div class="container my-4">
 
-<form method="GET" class="row g-3 mb-4">
-  <div class="col-md-4">
-    <label for="start_date" class="form-label">Date de début</label>
-    <input type="date" id="start_date" name="start_date" class="form-control" value="{{ request.args.get('start_date', '') }}">
-  </div>
-  <div class="col-md-4">
-    <label for="end_date" class="form-label">Date de fin</label>
-    <input type="date" id="end_date" name="end_date" class="form-control" value="{{ request.args.get('end_date', '') }}">
-  </div>
-  <div class="col-md-4 align-self-end">
-    <button type="submit" class="btn btn-primary">Filtrer</button>
-  </div>
-</form>
+  <h2 class="mb-4">📊 Statistiques de tri</h2>
 
-<canvas id="pieChart" width="300" height="300"></canvas>
+  <!-- Bouton Upload -->
+  <div class="mb-4">
+    <a href="{{ url_for('main.upload') }}" class="btn btn-outline-primary">
+      📤 Upload
+    </a>
+  </div>
 
+  <!-- Formulaire de filtre -->
+  <form method="GET" class="row g-3 mb-4">
+    <div class="col-md-4">
+      <label for="start_date" class="form-label">Date de début</label>
+      <input type="date" id="start_date" name="start_date" class="form-control" value="{{ request.args.get('start_date', '') }}">
+    </div>
+    <div class="col-md-4">
+      <label for="end_date" class="form-label">Date de fin</label>
+      <input type="date" id="end_date" name="end_date" class="form-control" value="{{ request.args.get('end_date', '') }}">
+    </div>
+    <div class="col-md-4 align-self-end">
+      <button type="submit" class="btn btn-primary w-100">Filtrer</button>
+    </div>
+  </form>
+
+  <!-- Graphique Chart.js -->
+  <div class="card p-4 mb-4">
+    <canvas id="pieChart" width="300" height="300"></canvas>
+  </div>
+
+  <!-- Carte Leaflet -->
+  <div id="map" style="height: 500px;" class="mb-4 rounded shadow"></div>
+
+</div>
+
+<!-- Librairies JS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
+// Chart.js - Pie chart
 const data = {
-    labels: ['Pleine', 'Vide'],
-    datasets: [{
-        data: [{{ stats.full }}, {{ stats.empty }}],
-        backgroundColor: ['#dc3545', '#198754']
-    }]
+  labels: ['Pleine', 'Vide'],
+  datasets: [{
+    data: [{{ stats.full }}, {{ stats.empty }}],
+    backgroundColor: ['#dc3545', '#198754']
+  }]
 };
 
 const config = {
-    type: 'pie',
-    data: data,
-    options: {
-        responsive: true,
-        plugins: {
-            legend: {
-                position: 'bottom'
-            },
-            title: {
-                display: true,
-                text: 'Répartition des annotations'
-            }
-        }
+  type: 'pie',
+  data: data,
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom' },
+      title: {
+        display: true,
+        text: 'Répartition des annotations'
+      }
     }
+  }
 };
 
-const pieChart = new Chart(
-    document.getElementById('pieChart'),
-    config
-);
+new Chart(document.getElementById('pieChart'), config);
+
+// Leaflet - Carte simple centrée sur la France
+var map = L.map('map').setView([46.603354, 1.888334], 6);
+
+L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap France',
+  minZoom: 2,
+  maxZoom: 20
+}).addTo(map);
+
 </script>
 
 {% endblock %}
