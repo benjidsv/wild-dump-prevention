@@ -77,8 +77,7 @@ def upload():
                 file.save(filepath)
 
                 # Feature extraction
-                features = extract_features(filepath)
-                label_auto = classify_image_by_rules(features)
+                label_auto = classify_image_by_rules(filepath)
                 labels.append(label_auto)
                 exif_timestamp = extract_exif_timestamp(filepath)
                 timestamp = exif_timestamp or datetime.utcnow()
@@ -117,8 +116,7 @@ def upload():
         file.save(filepath)
 
         # Feature extraction
-        features = extract_features(filepath)
-        label_auto = classify_image_by_rules(features)
+        label_auto = classify_image_by_rules(filepath)
         exif_timestamp = extract_exif_timestamp(filepath)
         timestamp = exif_timestamp or datetime.utcnow()
         location = extract_exif_location(filepath) or ""
