@@ -6,7 +6,7 @@ from sqlalchemy import func
 from werkzeug.utils import secure_filename
 import os
 from app.classification.rules import classify_image_by_rules
-from app.db.models import Image, Feature, User
+from app.db.models import Image, User
 from app.extensions import db
 from datetime import datetime
 from PIL import Image as PILImage
