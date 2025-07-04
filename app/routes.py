@@ -153,6 +153,7 @@ def upload():
     return render_template("upload.html", images=images)
 
 @main.route("/confirm", methods=["POST"])
+@admin_required
 def confirm_upload():
     print("post confirm upload")
     filename = request.form.get("filename")
@@ -178,6 +179,7 @@ def confirm_upload():
     return redirect(url_for("main.upload"))
 
 @main.route("/confirm_multiple", methods=["POST"])
+@admin_required
 def confirm_upload_multiple():
     print("post confirm upload multiple")
 
@@ -214,6 +216,7 @@ def confirm_upload_multiple():
     return redirect(url_for("main.upload"))
 
 @main.route("/extract_from_video", methods=["POST"])
+@admin_required
 def extract_from_video():
     video_name = request.args.get("video")
     ts_list = [float(t) for t in request.form.getlist("timestamps")]
