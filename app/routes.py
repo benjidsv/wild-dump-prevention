@@ -1,7 +1,12 @@
-from flask import Blueprint, render_template, request, redirect, url_for, current_app
+import uuid
+
+import cv2
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
 import os
+
+from app.classification.rules import classify_image_by_rules
 from app.feature_extraction import extract_features
 from app.classification.classifier import load_model, predict
 from app.db.models import Image, Feature
@@ -73,7 +78,7 @@ def upload():
 
                 # Feature extraction
                 features = extract_features(filepath)
-                label_auto = predict(features)
+                label_auto = classify_image_by_rules(features)
                 labels.append(label_auto)
                 exif_timestamp = extract_exif_timestamp(filepath)
                 timestamp = exif_timestamp or datetime.utcnow()
@@ -89,6 +94,22 @@ def upload():
             auto_locations=locations
         )
 
+        if 'video' in request.files:
+            video_file = request.files["video"]
+            if not video_file:
+                flash("Aucun fichier", "danger")
+                return redirect(request.url)
+
+            filename = secure_filename(video_file.filename)
+            filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+            video_file.save(filepath)
+
+            # On montre maintenant le lecteur vidéo
+            return render_template(
+                "select_timestamps.html",
+                video_filename=filename
+            )
+
         # We're uploading one image
         file = request.files["image"]
         filename = secure_filename(file.filename)
@@ -97,7 +118,7 @@ def upload():
 
         # Feature extraction
         features = extract_features(filepath)
-        label_auto = predict(features)
+        label_auto = classify_image_by_rules(features)
         exif_timestamp = extract_exif_timestamp(filepath)
         timestamp = exif_timestamp or datetime.utcnow()
         location = extract_exif_location(filepath) or ""
@@ -186,6 +207,44 @@ def confirm_upload_multiple():
     # 2) one commit for all rows
     db.session.commit()
     return redirect(url_for("main.upload"))
+
+@main.route("/extract_from_video", methods=["POST"])
+def extract_from_video():
+    video_name = request.args.get("video")
+    ts_list = [float(t) for t in request.form.getlist("timestamps")]
+
+    video_path = os.path.join(current_app.config["UPLOAD_FOLDER"], video_name)
+    cap = cv2.VideoCapture(video_path)
+    saved_frames, labels, timestamps, locations = [], [], [], []
+
+    for sec in ts_list:
+        cap.set(cv2.CAP_PROP_POS_MSEC, sec * 1000)
+        ok, frame = cap.read()
+        if not ok:
+            continue
+        img_name = f"frame_{uuid.uuid4().hex}.jpg"
+        img_path = os.path.join(current_app.config['UPLOAD_FOLDER'], img_name)
+        cv2.imwrite(img_path, frame)
+        saved_frames.append(img_name)
+
+        # Auto-détection pour chaque frame
+        feats = extract_features(img_path)
+        labels.append(predict(feats))
+        ts_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M")
+        timestamps.append(ts_iso)
+        locations.append("")   # ou ta fonction EXIF si besoin
+
+    cap.release()
+
+    # On réutilise ton template multiple
+    return render_template(
+        "confirm_upload_multiple.html",
+        filenames=saved_frames,
+        auto_labels=labels,
+        auto_timestamps=timestamps,
+        auto_locations=locations
+    )
+
 
 @main.route("/annotate/<int:image_id>", methods=["GET", "POST"])
 def annotate(image_id):
