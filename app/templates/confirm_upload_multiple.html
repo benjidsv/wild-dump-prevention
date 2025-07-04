@@ -6,37 +6,84 @@
 
 <form method="POST" action="{{ url_for('main.confirm_upload_multiple') }}">
   {% for filename in filenames %}
-  <div class="card mb-3">
+  <div class="card mb-3 upload-card"
+       data-index="{{ loop.index0 }}"
+       data-auto-label="{{ auto_labels[loop.index0] }}"
+       data-auto-timestamp="{{ auto_timestamps[loop.index0] }}"
+       data-auto-location="{{ auto_locations[loop.index0] }}">
     <div class="card-body">
-
       <h5 class="card-title">{{ filename }}</h5>
+      <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="img-fluid mb-3" style="max-height: 300px;" alt="Image uploadée">
+
       <input type="hidden" name="filenames" value="{{ filename }}">
+      <input type="hidden" name="is_manual_{{ loop.index0 }}" id="is_manual_{{ loop.index0 }}" value="false">
 
-      <!-- Label choice -->
+      <!-- Label -->
       <div class="mb-3">
-        <label class="form-label">Annotation (pleine / vide)</label>
-        <select class="form-select" name="label_mode_{{ loop.index0 }}">
-          <option value="auto" selected>Utiliser la valeur automatique</option>
-          <option value="manual">Définir manuellement</option>
-        </select>
+        <label class="form-label">État de la poubelle</label>
+        <div class="d-flex align-items-stretch gap-2">
+          <select name="label_{{ loop.index0 }}" id="label_{{ loop.index0 }}" class="form-select flex-grow-1">
+            <option value="full">Pleine</option>
+            <option value="empty">Vide</option>
+          </select>
+
+          <span id="label-badge_{{ loop.index0 }}"
+                class="btn fw-bold text-white text-center px-0 badge-auto"
+                style="width:100px;height:38px;">
+            Auto
+          </span>
+
+          <button type="button"
+                  class="btn btn-outline-secondary"
+                  id="label-reset_{{ loop.index0 }}"
+                  disabled>
+            Réinitialiser
+          </button>
+        </div>
       </div>
 
-      <!-- Timestamp choice -->
+      <!-- Timestamp -->
       <div class="mb-3">
-        <label class="form-label">Horodatage</label>
-        <select class="form-select" name="timestamp_mode_{{ loop.index0 }}">
-          <option value="auto" selected>Utiliser la valeur automatique</option>
-          <option value="manual">Définir manuellement</option>
-        </select>
+        <label for="timestamp_{{ loop.index0 }}" class="form-label">Date/Heure</label>
+        <div class="d-flex align-items-stretch gap-2">
+          <input type="datetime-local" name="timestamp_{{ loop.index0 }}" id="timestamp_{{ loop.index0 }}" class="form-control flex-grow-1">
+
+          <span id="timestamp-badge_{{ loop.index0 }}"
+                class="btn fw-bold text-white text-center px-0 badge-auto"
+                style="width:100px;height:38px;">
+            Auto
+          </span>
+
+          <button type="button" class="btn btn-outline-secondary" id="timestamp-reset_{{ loop.index0 }}" disabled>
+            Réinitialiser
+          </button>
+        </div>
+        <div id="timestamp-warning_{{ loop.index0 }}" class="form-text text-warning d-flex align-items-center gap-1">
+          <i class="bi-exclamation-triangle-fill"></i>
+          Aucun horodatage détecté automatiquement&nbsp;: veuillez saisir une valeur.
+        </div>
       </div>
 
-      <!-- Location choice -->
+      <!-- Location -->
       <div class="mb-3">
-        <label class="form-label">Localisation</label>
-        <select class="form-select" name="location_mode_{{ loop.index0 }}">
-          <option value="auto" selected>Utiliser la valeur automatique</option>
-          <option value="manual">Définir manuellement</option>
-        </select>
+        <label for="location_{{ loop.index0 }}" class="form-label">Localisation</label>
+        <div class="d-flex align-items-stretch gap-2">
+          <input type="text" name="location_{{ loop.index0 }}" id="location_{{ loop.index0 }}" class="form-control flex-grow-1" placeholder="Adresse ou coordonnées GPS">
+
+          <span id="location-badge_{{ loop.index0 }}"
+                class="btn fw-bold text-white text-center px-0 badge-auto"
+                style="width:100px;height:38px;">
+            Auto
+          </span>
+
+          <button type="button" class="btn btn-outline-secondary" id="location-reset_{{ loop.index0 }}" disabled>
+            Réinitialiser
+          </button>
+        </div>
+        <div id="location-warning_{{ loop.index0 }}" class="form-text text-warning d-flex align-items-center gap-1">
+          <i class="bi-exclamation-triangle-fill"></i>
+          Aucune localisation détectée automatiquement&nbsp;: veuillez saisir une valeur.
+        </div>
       </div>
 
     </div>
@@ -47,5 +94,104 @@
     <button type="submit" class="btn btn-success">Valider</button>
   </div>
 </form>
+
+<style>
+  /* reuse same style class for all badges so we can toggle color easily */
+  .badge-auto {
+    background-color:#0dcaf0;
+    pointer-events:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:system-ui,sans-serif;
+    padding:0;
+    line-height:1;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+
+    document.querySelectorAll('.upload-card').forEach(card => {
+      const idx = card.dataset.index;
+
+      const autoLabel = card.dataset.autoLabel || 'full';
+      const autoTimestamp = card.dataset.autoTimestamp || '';
+      const autoLocation = card.dataset.autoLocation || '';
+
+      // Elements
+      const labelSelect = card.querySelector(`#label_${idx}`);
+      const timestampInput = card.querySelector(`#timestamp_${idx}`);
+      const locationInput = card.querySelector(`#location_${idx}`);
+
+      const isManualField = card.querySelector(`#is_manual_${idx}`);
+
+      // Reset buttons
+      const labelResetBtn = card.querySelector(`#label-reset_${idx}`);
+      const timestampResetBtn = card.querySelector(`#timestamp-reset_${idx}`);
+      const locationResetBtn = card.querySelector(`#location-reset_${idx}`);
+
+      // Badges
+      const labelBadge = card.querySelector(`#label-badge_${idx}`);
+      const timestampBadge = card.querySelector(`#timestamp-badge_${idx}`);
+      const locationBadge = card.querySelector(`#location-badge_${idx}`);
+
+      // Warnings
+      const timestampWarning = card.querySelector(`#timestamp-warning_${idx}`);
+      const locationWarning = card.querySelector(`#location-warning_${idx}`);
+
+      function updateUI() {
+        const labelChanged = labelSelect.value !== autoLabel;
+        const timestampChanged = timestampInput.value !== autoTimestamp;
+        const locationChanged = locationInput.value !== autoLocation;
+
+        const isManual = labelChanged || timestampChanged || locationChanged;
+        isManualField.value = isManual ? 'true' : 'false';
+
+        const autoColor = '#0dcaf0';
+        const manualColor = '#6c757d';
+
+        // badges
+        labelBadge.textContent = labelChanged ? 'Manuel' : 'Auto';
+        labelBadge.style.backgroundColor = labelChanged ? manualColor : autoColor;
+
+        timestampBadge.textContent = timestampChanged ? 'Manuel' : 'Auto';
+        timestampBadge.style.backgroundColor = timestampChanged ? manualColor : autoColor;
+
+        locationBadge.textContent = locationChanged ? 'Manuel' : 'Auto';
+        locationBadge.style.backgroundColor = locationChanged ? manualColor : autoColor;
+
+        // reset buttons
+        labelResetBtn.disabled = !labelChanged;
+        timestampResetBtn.disabled = !timestampChanged;
+        locationResetBtn.disabled = !locationChanged;
+
+        // warnings
+        const showTimestampWarning = autoTimestamp === '' && timestampInput.value === '';
+        const showLocationWarning = autoLocation === '' && locationInput.value === '';
+
+        timestampWarning.classList.toggle('d-none', !showTimestampWarning);
+        locationWarning.classList.toggle('d-none', !showLocationWarning);
+      }
+
+      // Reset actions
+      labelResetBtn.addEventListener('click', () => { labelSelect.value = autoLabel; updateUI(); });
+      timestampResetBtn.addEventListener('click', () => { timestampInput.value = autoTimestamp; updateUI(); });
+      locationResetBtn.addEventListener('click', () => { locationInput.value = autoLocation; updateUI(); });
+
+      // Change listeners
+      labelSelect.addEventListener('change', updateUI);
+      timestampInput.addEventListener('input', updateUI);
+      locationInput.addEventListener('input', updateUI);
+
+      // Initial pre-fill
+      labelSelect.value = autoLabel;
+      timestampInput.value = autoTimestamp;
+      locationInput.value = autoLocation;
+      updateUI();
+    });
+
+  });
+</script>
 
 {% endblock %}

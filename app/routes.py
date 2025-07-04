@@ -57,7 +57,9 @@ def index():
 @main.route("/upload", methods=["GET", "POST"])
 def upload():
     if request.method == "POST":
+        print("post upload")
         if 'images' in request.files:
+            # We're uploading multiple images
             files = request.files.getlist('images')
             filenames = []
             labels = []
@@ -69,6 +71,7 @@ def upload():
                 filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
                 file.save(filepath)
 
+                # Feature extraction
                 features = extract_features(filepath)
                 label_auto = predict(features)
                 labels.append(label_auto)
@@ -78,26 +81,28 @@ def upload():
                 location = extract_exif_location(filepath) or ""
                 locations.append(location)
 
+            # We render the confirm step for multiple images
             return render_template("confirm_upload_multiple.html",
             filenames=filenames,
-            labels=labels,
+            auto_labels=labels,
             auto_timestamps=timestamps,
             auto_locations=locations
         )
 
+        # We're uploading one image
         file = request.files["image"]
         filename = secure_filename(file.filename)
         filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
 
-        # Extract
+        # Feature extraction
         features = extract_features(filepath)
         label_auto = predict(features)
         exif_timestamp = extract_exif_timestamp(filepath)
         timestamp = exif_timestamp or datetime.utcnow()
         location = extract_exif_location(filepath) or ""
 
-        # Render confirm step
+        # Render confirm step for one image
         return render_template("confirm_upload.html",
             filename=filename,
             auto_label=label_auto,
@@ -106,11 +111,13 @@ def upload():
         )
 
     # GET: show upload form and list of saved images
+    print("get upload")
     images = Image.query.all()
     return render_template("upload.html", images=images)
 
 @main.route("/confirm", methods=["POST"])
 def confirm_upload():
+    print("post confirm upload")
     filename = request.form.get("filename")
     label = request.form.get("label")
     is_manual = request.form.get("is_manual") == "true"
@@ -140,31 +147,44 @@ def confirm_upload():
 
 @main.route("/confirm_multiple", methods=["POST"])
 def confirm_upload_multiple():
-    filename = request.form.get("filename")
-    label = request.form.get("label")
-    is_manual = request.form.get("is_manual") == "true"
-    timestamp_str = request.form.get("timestamp")
-    location = request.form.get("location")
+    print("post confirm upload multiple")
 
-    filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-    features = extract_features(filepath)
+    filenames = request.form.getlist("filenames")
 
-    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M")
+    for idx, filename in enumerate(filenames):
+        # ---- form values ---------------------------------------------------
+        label = request.form.get(f"label_{idx}")  # "full" / "empty"
+        is_manual = request.form.get(f"is_manual_{idx}") == "true"
+        ts_str = request.form.get(f"timestamp_{idx}") or ""  # may be ""
+        location = request.form.get(f"location_{idx}") or ""
 
-    img = Image(
-        path=f"uploads/{filename}",
-        label=label,
-        is_manual=is_manual,
-        timestamp=timestamp,
-        location=location
-    )
-    db.session.add(img)
+        # ---- timestamp parsing --------------------------------------------
+        try:
+            timestamp = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M") if ts_str else datetime.utcnow()
+        except ValueError:
+            # Fallback if the browser sends an unexpected format
+            timestamp = datetime.utcnow()
+
+        # ---- file & feature extraction ------------------------------------
+        filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+        features = extract_features(filepath)  # same helper you already use
+
+        # ---- create DB rows -----------------------------------------------
+        img = Image(
+            path=f"uploads/{filename}",
+            label=label,
+            is_manual=is_manual,
+            timestamp=timestamp,
+            location=location
+        )
+        db.session.add(img)
+        db.session.flush()  # get img.id without committing
+
+        feat = Feature(image_id=img.id, **features)
+        db.session.add(feat)
+
+    # 2) one commit for all rows
     db.session.commit()
-
-    feat = Feature(image_id=img.id, **features)
-    db.session.add(feat)
-    db.session.commit()
-
     return redirect(url_for("main.upload"))
 
 @main.route("/annotate/<int:image_id>", methods=["GET", "POST"])
