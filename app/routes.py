@@ -230,7 +230,6 @@ def extract_from_video():
         auto_locations=locations
     )
 
-
 @main.route("/annotate/<int:image_id>", methods=["GET", "POST"])
 def annotate(image_id):
     from app.db.models import Image
