@@ -10,6 +10,7 @@ from datetime import datetime
 from PIL import Image as PILImage
 from PIL.ExifTags import TAGS, GPSTAGS
 from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 
 def extract_exif_location(image_path):
     img = PILImage.open(image_path)
@@ -50,6 +51,25 @@ def extract_exif_timestamp(image_path):
 
         return None
 
+# --------- Décorateur pour accès admin ---------
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user_id = session.get("user_id")
+        if not user_id:
+            flash("Veuillez vous connecter pour accéder à cette page.", "warning")
+            return redirect(url_for("main.login"))
+
+        user = User.query.get(user_id)
+        if not user or not user.is_admin:
+            # Page dédiée d'accès refusé avec redirection automatique
+            return render_template("unauthorized.html"), 403
+
+        return f(*args, **kwargs)
+
+    return decorated_function
+
 
 main = Blueprint('main', __name__)
 @main.route("/")
@@ -57,6 +77,7 @@ def index():
     return redirect(url_for("main.dashboard"))
 
 @main.route("/upload", methods=["GET", "POST"])
+@admin_required
 def upload():
     if request.method == "POST":
         file = request.files["image"]
@@ -192,8 +213,8 @@ def register():
         db.session.add(user)
         db.session.commit()
 
-        flash("Compte créé avec succès !", "success")
-        return redirect(url_for("main.index"))
+        flash("Compte créé avec succès ! Veuillez vous connecter.", "success")
+        return redirect(url_for("main.login"))
 
     return render_template("register.html")
 

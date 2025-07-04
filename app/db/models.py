@@ -27,6 +27,8 @@ class User(db.Model):
     name = db.Column(db.String(200))
     mail = db.Column(db.String(200))
     password = db.Column(db.String(300))
+    is_admin = db.Column(db.Boolean, default=False)
+    
 
     images = db.relationship("Image", backref="user", lazy=True)
 
