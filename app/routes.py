@@ -7,7 +7,6 @@ from werkzeug.utils import secure_filename
 import os
 
 from app.classification.rules import classify_image_by_rules
-from app.classification.classifier import load_model, predict
 from app.db.models import Image, Feature
 from app.extensions import db
 from datetime import datetime
