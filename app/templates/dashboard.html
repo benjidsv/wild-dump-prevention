@@ -25,77 +25,48 @@
 <h2>🗺️ Carte des poubelles</h2>
 <div id="map" style="height: 500px;"></div>
 
-<!-- Librairies JS -->
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-sA+MqXtn4WY0GPo9F06P9n2v4Uu47aZm4J09snL+8wY="
-  crossorigin=""
-/>
-<script
-  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-o7c8bGlQkuoS4F4J+WnD2j4ntxPtJ0kY9Q+G2VM+Rqc="
-  crossorigin=""
-></script>
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
 <script>
-// --- Chart.js Camembert ---
-const data = {
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Chart.js ---
+  const data = {
     labels: ['Pleine', 'Vide'],
     datasets: [{
-        data: [{{ stats.full }}, {{ stats.empty }}],
-        backgroundColor: ['#dc3545', '#198754']
+      data: [{{ stats.full|default(0) }}, {{ stats.empty|default(0) }}],
+      backgroundColor: ['#dc3545', '#198754']
     }]
-};
+  };
+  new Chart('#pieChart', { type: 'pie', data, options: {responsive:true,plugins:{legend:{position:'bottom'},title:{display:true,text:'Répartition des annotations'}}}});
 
-const config = {
-    type: 'pie',
-    data: data,
-    options: {
-        responsive: true,
-        plugins: {
-            legend: { position: 'bottom' },
-            title: { display: true, text: 'Répartition des annotations' }
-        }
-    }
-};
-
-new Chart(document.getElementById('pieChart'), config);
-
-// --- Leaflet Carte ---
-const map = L.map('map').setView([46.6, 2.4], 6);  // Centre France
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 18,
-  attribution: '© OpenStreetMap contributors'
-}).addTo(map);
-
-// Récupérer les points depuis Flask (liste d'objets {lat, lon, label})
-const locations = {{ locations_coords | tojson }};
-
-// Ajouter un marker par location avec couleur selon label
-locations.forEach(loc => {
-  const pinColor = loc.label === 'full' ? 'red' :
-                   loc.label === 'empty' ? 'green' :
-                   'blue';
-
-  const circle = L.circleMarker([loc.lat, loc.lon], {
-    radius: 8,
-    fillColor: pinColor,
-    color: '#000',
-    weight: 1,
-    opacity: 1,
-    fillOpacity: 0.8
+  // --- Leaflet ---
+  const map = L.map('map').setView([46.6, 2.4], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap contributors'
   }).addTo(map);
 
-  circle.bindPopup(
-    `Statut: <strong>${loc.label}</strong><br>` +
-    `Latitude: ${loc.lat.toFixed(5)}<br>` +
-    `Longitude: ${loc.lon.toFixed(5)}`
-  );
+  const locations = {{ locations_coords|tojson|default('[]', true) }};
+  locations.forEach(loc => {
+    if (loc.lat == null || loc.lon == null) return;
+    const pinColor = loc.label === 'full' ? 'red' :
+                     loc.label === 'empty' ? 'green' : 'blue';
+    const circle = L.circleMarker([loc.lat, loc.lon], {
+      radius: 8, weight: 1, color:'#000',
+      fillColor: pinColor, fillOpacity: 0.8
+    }).addTo(map);
+    circle.bindPopup(
+      `Statut : <strong>${loc.label}</strong><br>` +
+      `Lat : ${loc.lat.toFixed(5)}<br>` +
+      `Lon : ${loc.lon.toFixed(5)}`
+    );
+  });
 });
 </script>
+
 
 {% endblock %}
