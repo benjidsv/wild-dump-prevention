@@ -132,7 +132,7 @@ def dashboard():
 
     query = Image.query
 
-    # Filters
+    # Appliquer les filtres de date
     if start_date_str and end_date_str:
         try:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
@@ -141,10 +141,11 @@ def dashboard():
         except ValueError:
             pass
 
+    # Filtrer par localisation partielle (texte)
     if location_filter:
         query = query.filter(Image.location.ilike(f"%{location_filter}%"))
 
-    # Pie chart data
+    # Calcul des stats pour le graphique camembert
     label_counts = (
         query.with_entities(Image.label, func.count(Image.id))
         .group_by(Image.label)
@@ -158,7 +159,31 @@ def dashboard():
         elif label == "empty":
             stats["empty"] = count
 
-    # For dropdown
+    # Liste distincte des localisations pour un éventuel filtre/déploiement UI
     all_locations = [r[0] for r in db.session.query(Image.location).distinct().all() if r[0]]
 
-    return render_template("dashboard.html", stats=stats, locations=all_locations)
+    # Récupérer les images filtrées avec localisation non nulle
+    images_filtered = query.filter(Image.location.isnot(None)).all()
+
+    locations_coords = []
+    for img in images_filtered:
+        if img.location:
+            try:
+                lat_str, lon_str = img.location.split(",")
+                lat, lon = float(lat_str), float(lon_str)
+                locations_coords.append({
+                    "lat": lat,
+                    "lon": lon,
+                    "label": img.label or "non défini"
+                })
+            except Exception:
+                # En cas d'erreur dans le format GPS, on ignore
+                continue
+
+    # Renvoyer les données au template
+    return render_template(
+        "dashboard.html",
+        stats=stats,
+        locations=all_locations,
+        locations_coords=locations_coords
+    )
