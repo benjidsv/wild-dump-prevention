@@ -7,7 +7,6 @@ from werkzeug.utils import secure_filename
 import os
 
 from app.classification.rules import classify_image_by_rules
-from app.feature_extraction import extract_features
 from app.classification.classifier import load_model, predict
 from app.db.models import Image, Feature
 from app.extensions import db
@@ -144,7 +143,6 @@ def confirm_upload():
     location = request.form.get("location")
 
     filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-    features = extract_features(filepath)
 
     timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M")
 
@@ -156,10 +154,6 @@ def confirm_upload():
         location=location
     )
     db.session.add(img)
-    db.session.commit()
-
-    feat = Feature(image_id=img.id, **features)
-    db.session.add(feat)
     db.session.commit()
 
     return redirect(url_for("main.upload"))
@@ -186,7 +180,6 @@ def confirm_upload_multiple():
 
         # ---- file & feature extraction ------------------------------------
         filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-        features = extract_features(filepath)  # same helper you already use
 
         # ---- create DB rows -----------------------------------------------
         img = Image(
@@ -197,10 +190,6 @@ def confirm_upload_multiple():
             location=location
         )
         db.session.add(img)
-        db.session.flush()  # get img.id without committing
-
-        feat = Feature(image_id=img.id, **features)
-        db.session.add(feat)
 
     # 2) one commit for all rows
     db.session.commit()
@@ -226,8 +215,7 @@ def extract_from_video():
         saved_frames.append(img_name)
 
         # Auto-détection pour chaque frame
-        feats = extract_features(img_path)
-        labels.append(predict(feats))
+        labels.append(classify_image_by_rules(img_path))
         ts_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M")
         timestamps.append(ts_iso)
         locations.append("")   # ou ta fonction EXIF si besoin
