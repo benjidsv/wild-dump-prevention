@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Capture & Upload{% endblock %}
+{% block content %}
+<h2 class="mb-4">📸 Prendre une photo et l’envoyer</h2>
+
+<!-- Video preview -->
+<div class="mb-3">
+  <video id="preview" class="w-100 border rounded" playsinline autoplay></video>
+</div>
+
+<!-- Form automatically filled by JS -->
+<form id="captureForm" method="POST" action="{{ url_for('main.quick_upload') }}" enctype="multipart/form-data">
+  <input type="hidden" name="image" id="imageInput">
+  <input type="hidden" name="timestamp" id="timestampInput">
+  <input type="hidden" name="location" id="locationInput">
+  <input type="hidden" name="label" value="auto">
+  <input type="hidden" name="is_manual" value="false">
+
+  <button type="button" id="snapBtn" class="btn btn-primary btn-lg">📷 Capturer</button>
+</form>
+
+<canvas id="snapshotCanvas" class="d-none"></canvas>
+
+<script>
+(async () => {
+  const video   = document.getElementById('preview');
+  const canvas  = document.getElementById('snapshotCanvas');
+  const ctx     = canvas.getContext('2d');
+  const snapBtn = document.getElementById('snapBtn');
+
+  /* ---------- 1. Get camera stream ---------- */
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    video.srcObject = stream;
+  } catch (err) {
+    alert('Impossible d’accéder à la caméra : ' + err.message);
+    return;
+  }
+
+  /* ---------- 2. Capture & submit ---------- */
+  snapBtn.addEventListener('click', async () => {
+    // Resize canvas to video frame
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convert to blob
+    canvas.toBlob(async blob => {
+      if (!blob) return;
+
+      // Build FormData manually (faster than hidden file input trick)
+      const form = new FormData();
+      form.append('image',   blob, `capture_${Date.now()}.jpg`);
+      form.append('timestamp', new Date().toISOString().slice(0,16)); // YYYY-MM-DDTHH:MM
+
+      try {
+        const geo = await new Promise(resolve =>
+          navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy:true, maximumAge:60000, timeout:5000 })
+        );
+        if (geo) {
+          form.append('location', `${geo.coords.latitude},${geo.coords.longitude}`);
+        }
+      } catch { /* silently ignore */ }
+
+      // Extra fields
+      form.append('label', 'auto');
+      form.append('is_manual', 'false');
+
+      // POST to server
+      const resp = await fetch('{{ url_for('main.quick_upload') }}', { method:'POST', body: form });
+      if (resp.redirected) {
+        window.location = resp.url; // follow Flask redirect to /upload or similar
+      } else if (!resp.ok) {
+        alert('Erreur lors de l’envoi (code ' + resp.status + ')');
+      }
+    }, 'image/jpeg', 0.9);
+  });
+})();
+</script>
+{% endblock %}

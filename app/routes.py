@@ -19,6 +19,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from geopy.geocoders import Nominatim
 
+def str_to_bool(val: str | None) -> bool:
+    return (val or "").lower() == "true"
+
+
 def extract_exif_location(image_path):
     img = PILImage.open(image_path)
     exif_data = img._getexif()
@@ -58,7 +62,7 @@ def extract_exif_timestamp(image_path):
 
         return None
 
-def add_image_to_db(filename, address, timestamp_str, label, is_manual):
+def add_image_to_db(filename, address, timestamp_str, label, label_manual, timestamp_manual, address_manual):
     timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M")
 
     # If the location is already in the db, no need to recreate
@@ -88,14 +92,15 @@ def add_image_to_db(filename, address, timestamp_str, label, is_manual):
     img = Image(
         path=os.path.join(current_app.config["UPLOAD_FOLDER"], filename),
         label=label,
-        is_manual=is_manual,
         timestamp=timestamp,
         location=location,
-        user_id=session.get("user_id")
+        user_id=session.get("user_id"),
+        label_manual=label_manual,
+        timestamp_manual=timestamp_manual,
+        location_manual=address_manual,
     )
     db.session.add(img)
     db.session.commit()
-
 
 # --------- Décorateur pour accès admin ---------
 def admin_required(f):
@@ -115,86 +120,117 @@ def admin_required(f):
 
     return decorated_function
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user_id = session.get("user_id")
+        if not user_id:
+            flash("Veuillez vous connecter pour accéder à cette page.", "warning")
+            return redirect(url_for("main.login"))
+
+        user = User.query.get(user_id)
+        if not user:
+            return render_template("unauthorized.html"), 403
+
+        return f(*args, **kwargs)
+
+    return decorated_function
+
 main = Blueprint('main', __name__)
+@main.app_context_processor
+def inject_current_user():
+    uid = session.get("user_id")
+    return {"current_user": User.query.get(uid) if uid else None}
+
 @main.route("/")
 def index():
     return redirect(url_for("main.dashboard"))
 
 @main.route("/upload", methods=["GET", "POST"])
-@admin_required
+@login_required
 def upload():
-    if request.method == "POST":
-        print("post upload")
-        if 'images' in request.files:
-            # We're uploading multiple images
-            files = request.files.getlist('images')
-            filenames = []
-            labels = []
-            timestamps = []
-            locations = []
-            for file in files:
-                filename = secure_filename(file.filename)
-                filenames.append(filename)
-                filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-                file.save(filepath)
+    print("post upload")
+    user = User.query.get(session["user_id"])  # we know it exists
 
-                # Feature extraction
-                label_auto = classify_image_by_rules(filepath)
-                labels.append(label_auto)
-                exif_timestamp = extract_exif_timestamp(filepath)
-                timestamp = exif_timestamp or datetime.utcnow()
-                timestamps.append(timestamp.strftime("%Y-%m-%dT%H:%M"))
-                location = extract_exif_location(filepath) or ""
-                locations.append(location)
-
-            # We render the confirm step for multiple images
-            return render_template("confirm_upload_multiple.html",
-            filenames=filenames,
-            auto_labels=labels,
-            auto_timestamps=timestamps,
-            auto_locations=locations
+    # ------------------------ GET ------------------------ #
+    if request.method == "GET":
+        images = (
+            Image.query.all()                              # admin sees everything
+            if user.is_admin
+            else Image.query.filter_by(user_id=user.id).all()  # regular user → only own photos
         )
+        return render_template("upload.html", images=images)
 
-        if 'video' in request.files:
-            video_file = request.files["video"]
-            if not video_file:
-                flash("Aucun fichier", "danger")
-                return redirect(request.url)
+    # ----------------------- POST ------------------------ #
+    if not user.is_admin:
+        # Block non-admin POST attempts (403 Forbidden)
+        return render_template("unauthorized.html"), 403
 
-            filename = secure_filename(video_file.filename)
+    if 'images' in request.files:
+        # We're uploading multiple images
+        files = request.files.getlist('images')
+        filenames = []
+        labels = []
+        timestamps = []
+        locations = []
+        for file in files:
+            filename = secure_filename(file.filename)
+            filenames.append(filename)
             filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-            video_file.save(filepath)
+            file.save(filepath)
 
-            # On montre maintenant le lecteur vidéo
-            return render_template(
-                "select_timestamps.html",
-                video_filename=filename
-            )
+            # Feature extraction
+            label_auto = classify_image_by_rules(filepath)
+            labels.append(label_auto)
+            exif_timestamp = extract_exif_timestamp(filepath)
+            timestamp = exif_timestamp or datetime.utcnow()
+            timestamps.append(timestamp.strftime("%Y-%m-%dT%H:%M"))
+            location = extract_exif_location(filepath) or ""
+            locations.append(location)
 
-        # We're uploading one image
-        file = request.files["image"]
-        filename = secure_filename(file.filename)
+        # We render the confirm step for multiple images
+        return render_template("confirm_upload_multiple.html",
+        filenames=filenames,
+        auto_labels=labels,
+        auto_timestamps=timestamps,
+        auto_locations=locations
+    )
+
+    if 'video' in request.files:
+        video_file = request.files["video"]
+        if not video_file:
+            flash("Aucun fichier", "danger")
+            return redirect(request.url)
+
+        filename = secure_filename(video_file.filename)
         filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-        file.save(filepath)
+        video_file.save(filepath)
 
-        # Feature extraction
-        label_auto = classify_image_by_rules(filepath)
-        exif_timestamp = extract_exif_timestamp(filepath)
-        timestamp = exif_timestamp or datetime.utcnow()
-        location = extract_exif_location(filepath) or ""
-
-        # Render confirm step for one image
-        return render_template("confirm_upload.html",
-            filename=filename,
-            auto_label=label_auto,
-            default_timestamp=timestamp.strftime("%Y-%m-%dT%H:%M"),
-            auto_location=location
+        # On montre maintenant le lecteur vidéo
+        return render_template(
+            "select_timestamps.html",
+            video_filename=filename
         )
 
-    # GET: show upload form and list of saved images
-    print("get upload")
-    images = Image.query.all()
-    return render_template("upload.html", images=images)
+    # We're uploading one image
+    file = request.files["image"]
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+    file.save(filepath)
+
+    # Feature extraction
+    label_auto = classify_image_by_rules(filepath)
+    exif_timestamp = extract_exif_timestamp(filepath)
+    timestamp = exif_timestamp or datetime.utcnow()
+    location = extract_exif_location(filepath) or ""
+
+    # Render confirm step for one image
+    return render_template("confirm_upload.html",
+        filename=filename,
+        auto_label=label_auto,
+        default_timestamp=timestamp.strftime("%Y-%m-%dT%H:%M"),
+        auto_location=location
+    )
 
 @main.route("/confirm", methods=["POST"])
 @admin_required
@@ -202,32 +238,95 @@ def confirm_upload():
     print("post confirm upload")
     filename = request.form.get("filename")
     label = request.form.get("label")
-    is_manual = request.form.get("is_manual") == "true"
     timestamp_str = request.form.get("timestamp")
     address = request.form.get("location").strip()
+    label_manual = str_to_bool(request.form.get("label_manual"))
+    timestamp_manual = str_to_bool(request.form.get("timestamp_manual"))
+    address_manual = str_to_bool(request.form.get("location_manual").strip())
 
-    add_image_to_db(filename, address, timestamp_str, label, is_manual)
+    add_image_to_db(filename, address, timestamp_str, label, label_manual, timestamp_manual, address_manual)
 
     return redirect(url_for("main.upload"))
 
 @main.route("/confirm_multiple", methods=["POST"])
 @admin_required
 def confirm_upload_multiple():
-    print("post confirm upload multiple")
-
     filenames = request.form.getlist("filenames")
+
     for idx, filename in enumerate(filenames):
-        # ---- form values ---------------------------------------------------
-        label = request.form.get(f"label_{idx}")  # "full" / "empty"
-        is_manual = request.form.get(f"is_manual_{idx}") == "true"
-        timestamp_str = request.form.get(f"timestamp_{idx}") or ""  # may be ""
-        address = request.form.get(f"location_{idx}") or ""
+        label          = request.form.get(f"label_{idx}")
+        ts_str         = request.form.get(f"timestamp_{idx}") or ""
+        address        = request.form.get(f"location_{idx}")  or ""
 
-        add_image_to_db(filename, address, timestamp_str, label, is_manual)
+        # --- convert provenance flags to real booleans -------------
+        label_manual   = str_to_bool(request.form.get(f"label_manual_{idx}"))
+        ts_manual      = str_to_bool(request.form.get(f"timestamp_manual_{idx}"))
+        loc_manual     = str_to_bool(request.form.get(f"location_manual_{idx}"))
 
-    # 2) one commit for all rows
+        is_manual      = label_manual or ts_manual or loc_manual
+
+        # ------------ resolve / build Location row -----------------
+        location = None
+        if address:
+            location = Location.query.filter_by(address=address).first()
+            if not location:
+                try:
+                    geo = Nominatim(user_agent="wdp/1.0", timeout=5).geocode(address, exactly_one=True)
+                except GeocoderServiceError:
+                    geo = None
+                location = Location(
+                    address   = address,
+                    latitude  = geo.latitude  if geo else None,
+                    longitude = geo.longitude if geo else None,
+                )
+                db.session.add(location)
+                db.session.flush()
+
+        # ------------- add Image -----------------------------------
+        img = Image(
+            path              = os.path.join(current_app.config['UPLOAD_FOLDER'], filename),
+            label             = label,
+            timestamp         = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M"),
+            user_id           = session['user_id'],
+            label_manual      = label_manual,
+            timestamp_manual  = ts_manual,
+            location_manual   = loc_manual,
+            location          = location,
+        )
+        db.session.add(img)
+
     db.session.commit()
+    flash("Images enregistrées ✅", "success")
     return redirect(url_for("main.upload"))
+
+@main.route("/user_upload")
+@login_required          # or @admin_required if only admins can use it
+def user_upload():
+    return render_template("capture_upload.html")
+
+@main.route("/quick_upload", methods=["POST"])
+@login_required
+def quick_upload():
+    file = request.files.get("image")
+    if not file:
+        flash("Erreur : aucune image reçue.", "danger")
+        return redirect(url_for("main.upload"))
+
+    filename  = secure_filename(file.filename)
+    filepath  = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+    file.save(filepath)
+
+    # Auto-label from your rules
+    label_auto = classify_image_by_rules(filepath)
+
+    # Values provided by the client (timestamp already ISO-ish)
+    timestamp_str = request.form.get("timestamp")
+    address       = request.form.get("location", "").strip()
+
+    add_image_to_db(filename, address, timestamp_str, label_auto, False, False, False)
+    flash("Image enregistrée ✅", "success")
+    return redirect(url_for("main.upload"))
+
 
 @main.route("/extract_from_video", methods=["POST"])
 @admin_required
@@ -266,18 +365,98 @@ def extract_from_video():
         auto_locations=locations
     )
 
-@main.route("/annotate/<int:image_id>", methods=["GET", "POST"])
-def annotate(image_id):
-    from app.db.models import Image
-    image = Image.query.get_or_404(image_id)
+@main.route("/delete_image/<int:image_id>", methods=["POST"])
+@login_required
+def delete_image(image_id):
+    img = Image.query.get_or_404(image_id)
+    user = User.query.get(session["user_id"])
 
-    if request.method == "POST":
-        label = request.form["label"]
-        image.label = label
+    # --- permission check ---
+    if not (user.is_admin or img.user_id == user.id):
+        return render_template("unauthorized.html"), 403
+
+    # --- delete file from disk
+    try:
+        os.remove(img.path)
+    except OSError:
+        pass  # file already gone / cannot delete -> ignore
+
+    # --- delete DB row ---
+    db.session.delete(img)
+    db.session.commit()
+
+    flash("Image supprimée.", "success")
+    return redirect(url_for("main.upload"))
+
+@main.route("/edit_image/<int:image_id>")
+@admin_required
+def edit_image(image_id):
+    img = Image.query.get_or_404(image_id)
+
+    return render_template(
+        "confirm_upload.html",        # same template!
+        edit_mode=True,               # flag
+        image_id=img.id,
+        filename=img.path.split("/")[-1],  # for <img src>
+        auto_label=img.label or "full",
+        auto_timestamp=img.timestamp.strftime("%Y-%m-%dT%H:%M"),
+        auto_location=img.location.address if img.location else "",
+    )
+
+@main.route("/update_image", methods=["POST"])
+@admin_required
+def update_image():
+    img = Image.query.get_or_404(int(request.form["image_id"]))
+    changed = False                     # track if anything actually modified
+
+    # ---------- LABEL ----------
+    new_label = request.form.get("label")
+    if new_label and new_label != img.label:
+        img.label = new_label
+        img.label_manual = True
+        changed = True
+
+    # ---------- TIMESTAMP ----------
+    ts_str = request.form.get("timestamp")
+    if ts_str:
+        try:
+            ts = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M")
+            if ts != img.timestamp:
+                img.timestamp = ts
+                img.timestamp_manual = True
+                changed = True
+        except ValueError:
+            flash("Horodatage invalide : modification ignorée.", "warning")
+
+    # ---------- LOCATION ----------
+    address = (request.form.get("location") or "").strip()
+    if address and (not img.location or img.location.address != address):
+        # reuse existing row if same addr already in DB
+        loc = Location.query.filter_by(address=address).first()
+        if not loc:
+            geolocator = Nominatim(user_agent="wdp/1.0", timeout=5)
+            try:
+                geo = geolocator.geocode(address, exactly_one=True)
+            except GeocoderServiceError:
+                geo = None
+            lat = geo.latitude if geo else None
+            lon = geo.longitude if geo else None
+            loc = Location(address=address, latitude=lat, longitude=lon)
+            db.session.add(loc)
+            db.session.flush()
+        img.location = loc
+        img.location_manual = True
+        changed = True
+
+    # ---------- COMMIT ----------
+    if changed:
         db.session.commit()
-        return redirect(url_for("main.upload"))
+        flash("Image mise à jour ✅", "success")
+    else:
+        flash("Aucune modification détectée.", "info")
 
-    return render_template("annotate.html", image=image)
+    return redirect(url_for("main.upload"))
+
 
 @main.route("/dashboard")
 def dashboard():
@@ -376,7 +555,7 @@ def register():
             return render_template("register.html", error=error_msg, name=name, email=email)
 
         # Création de l'utilisateur
-        user = User(name=name, mail=email, password=hashed_password, is_admin=True)
+        user = User(name=name, mail=email, password=hashed_password, is_admin=False)
         db.session.add(user)
         db.session.commit()
 
@@ -402,3 +581,9 @@ def login():
         return render_template("login.html", error=error_msg, email=email)
 
     return render_template("login.html")
+
+@main.route("/logout")
+def logout():
+    session.pop("user_id", None)   # forget who was logged-in
+    flash("Vous êtes maintenant déconnecté·e.", "info")
+    return redirect(url_for("main.dashboard"))

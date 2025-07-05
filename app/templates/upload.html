@@ -2,6 +2,7 @@
 {% block title %}Upload{% endblock %}
 {% block content %}
 
+{% if current_user.is_admin %}
 <div class="btn-group mb-3" role="group" aria-label="Upload mode">
     <input type="radio" class="btn-check" name="uploadMode" id="singleMode" value="single" autocomplete="off" checked onchange="setUploadMode()">
     <label class="btn btn-outline-primary" for="singleMode">Unitaire</label>
@@ -45,25 +46,110 @@ function setUploadMode() {
     }
 }
 </script>
+{% else %}
+<a href="{{ url_for('main.user_upload') }}" class="btn btn-success mb-4">
+        <i class="bi bi-camera-video me-1"></i> Prendre une photo
+    </a>
+{% endif %}
 
 {% if images %}
-<h2>Images Uploadées</h2>
+  <h2 class="mb-3">Images uploadées</h2>
 {% endif %}
-<div class="row">
-    {% for img in images %}
-    <div class="col-md-3">
-        <img src="{{ url_for('static', filename='uploads/' + img.path.split('/')[-1]) }}" class="img-fluid mb-2">
-        <p>
-            <strong>Label :</strong> {{ img.label or "Non annotée" }} {% if img.is_manual %}
-            <span class="badge bg-secondary">manuel</span>
-            {% else %}
-            <span class="badge bg-info">auto</span>
-    {% endif %}
-        </p>
-    </div>
-    {% else %}
-    <strong>Vous n'avez pas encore uploadé d'images.</strong>
-    {% endfor %}
+
+<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+  {% for img in images %}
+    <div class="col">
+      <div class="card h-100 shadow-sm">
+
+        <!-- Preview: 4 × 3 ratio, edge-to-edge -->
+<div class="ratio ratio-4x3 bg-light rounded-top" style="cursor: zoom-in;"
+     data-bs-toggle="modal" data-bs-target="#modal{{ img.id }}">
+  <img src="{{ url_for('static', filename='uploads/' + img.path.split('/')[-1]) }}"
+       class="w-100 h-100 object-fit-cover rounded-top"
+       alt="Image dump">
 </div>
 
+    <!-- Modal -->
+        <div class="modal fade" id="modal{{ img.id }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-transparent border-0">
+              <button type="button" class="btn-close position-absolute end-0 m-2" data-bs-dismiss="modal"></button>
+              <img src="{{ url_for('static', filename='uploads/' + img.path.split('/')[-1]) }}"
+                   class="w-100 rounded shadow" alt="Full image">
+            </div>
+          </div>
+        </div>
+
+
+        {# ---------- meta data ---------- #}
+<div class="card-body p-2">
+  {# --- Label --- #}
+  <h6 class="card-title mb-1">
+    Label&nbsp;:
+    <span class="badge {{ 'bg-secondary' if img.is_manual else 'bg-info' }}">
+      {{ img.label or 'Non annotée' }}
+    </span>
+    {% if current_user.is_admin %}
+      <i class="bi bi-check-lg ms-1
+                {{ 'text-success' if img.label_manual else 'text-info' }}"
+         title="{{ 'Manuel' if img.label_manual else 'Auto' }}"></i>
+    {% endif %}
+  </h6>
+
+  {# --- Timestamp --- #}
+  <p class="card-text small mb-1">
+    <i class="bi bi-clock me-1"></i>
+    {{ img.timestamp.strftime('%d/%m/%Y %H:%M') }}
+    {% if current_user.is_admin %}
+      <i class="bi bi-check-lg ms-1
+                {{ 'text-success' if img.timestamp_manual else 'text-info' }}"
+         title="{{ 'Manuel' if img.timestamp_manual else 'Auto' }}"></i>
+    {% endif %}
+  </p>
+
+  {# --- Location --- #}
+  {% if img.location %}
+    <p class="card-text small text-truncate">
+      <i class="bi bi-geo-alt me-1"></i>
+      {{ img.location.address or
+         (img.location.latitude|string ~ ',' ~ img.location.longitude|string) }}
+      {% if current_user.is_admin %}
+        <i class="bi bi-check-lg ms-1
+                  {{ 'text-success' if img.location_manual else 'text-info' }}"
+           title="{{ 'Manuel' if img.location_manual else 'Auto' }}"></i>
+      {% endif %}
+    </p>
+  {% endif %}
+</div>
+
+
+        <!-- 3) footer with delete button (if allowed) -->
+        {% if current_user.is_admin or current_user.id == img.user_id %}
+          <div class="card-footer bg-transparent border-0 p-2">
+              {% if current_user.is_admin %}
+  <a href="{{ url_for('main.edit_image', image_id=img.id) }}"
+     class="btn btn-sm btn-outline-primary w-100 mb-2">
+     <i class="bi bi-pencil-square me-1"></i>Éditer
+  </a>
+{% endif %}
+
+            <form method="POST"
+                  action="{{ url_for('main.delete_image', image_id=img.id) }}"
+                  onsubmit="return confirm('Supprimer cette image ?');">
+              <button class="btn btn-sm btn-outline-danger w-100">
+                <i class="bi bi-trash me-1"></i>Supprimer
+              </button>
+            </form>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <strong>Vous n'avez pas encore uploadé d'images.</strong>
+  {% endfor %}
+</div>
+
+<style>
+.object-fit-contain { object-fit: contain; }
+</style>
 {% endblock %}

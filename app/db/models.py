@@ -7,7 +7,9 @@ class Image(db.Model):
     path = db.Column(db.String(200))
     label = db.Column(db.String(10))  # full or empty
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)  # ✅ New
-    is_manual = db.Column(db.Boolean, default=False)
+    label_manual = db.Column(db.Boolean, default=False)  # FALSE = auto/rules
+    timestamp_manual = db.Column(db.Boolean, default=False)
+    location_manual = db.Column(db.Boolean, default=False)
 
     # FK vers Location (une seule location par image)
     location_id = db.Column(db.Integer, db.ForeignKey("location.id", ondelete="CASCADE"), nullable=False)

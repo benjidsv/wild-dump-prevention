@@ -7,18 +7,26 @@
 <form method="POST" action="{{ url_for('main.confirm_upload_multiple') }}">
   {% for filename in filenames %}
   <div class="card mb-3 upload-card"
-       data-index="{{ loop.index0 }}"
+       data-idx="{{ loop.index0 }}"
        data-auto-label="{{ auto_labels[loop.index0] }}"
        data-auto-timestamp="{{ auto_timestamps[loop.index0] }}"
        data-auto-location="{{ auto_locations[loop.index0] }}">
+
     <div class="card-body">
       <h5 class="card-title">{{ filename }}</h5>
-      <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="img-fluid mb-3" style="max-height: 300px;" alt="Image uploadée">
 
+      <img src="{{ url_for('static', filename='uploads/' + filename) }}"
+           class="img-fluid mb-3" style="max-height:300px;" alt="Image uploadée">
+
+      <!-- ---------- hidden inputs ---------- -->
       <input type="hidden" name="filenames" value="{{ filename }}">
-      <input type="hidden" name="is_manual_{{ loop.index0 }}" id="is_manual_{{ loop.index0 }}" value="false">
 
-      <!-- Label -->
+      <input type="hidden" name="label_manual_{{ loop.index0 }}"     id="label_manual_{{ loop.index0 }}">
+      <input type="hidden" name="timestamp_manual_{{ loop.index0 }}" id="timestamp_manual_{{ loop.index0 }}">
+      <input type="hidden" name="location_manual_{{ loop.index0 }}"  id="location_manual_{{ loop.index0 }}">
+      <input type="hidden" name="is_manual_{{ loop.index0 }}"        id="is_manual_{{ loop.index0 }}">
+
+      <!-- ---------- Label ---------- -->
       <div class="mb-3">
         <label class="form-label">État de la poubelle</label>
         <div class="d-flex align-items-stretch gap-2">
@@ -27,61 +35,50 @@
             <option value="empty">Vide</option>
           </select>
 
-          <span id="label-badge_{{ loop.index0 }}"
-                class="btn fw-bold text-white text-center px-0 badge-auto"
-                style="width:100px;height:38px;">
-            Auto
-          </span>
+          <span id="label-badge_{{ loop.index0 }}"  class="badge-auto">Auto</span>
 
-          <button type="button"
-                  class="btn btn-outline-secondary"
-                  id="label-reset_{{ loop.index0 }}"
-                  disabled>
-            Réinitialiser
-          </button>
+          <button type="button" class="btn btn-outline-secondary"
+                  id="label-reset_{{ loop.index0 }}" disabled>Réinitialiser</button>
         </div>
       </div>
 
-      <!-- Timestamp -->
+      <!-- ---------- Timestamp ---------- -->
       <div class="mb-3">
-        <label for="timestamp_{{ loop.index0 }}" class="form-label">Date/Heure</label>
+        <label class="form-label" for="timestamp_{{ loop.index0 }}">Date/Heure</label>
         <div class="d-flex align-items-stretch gap-2">
-          <input type="datetime-local" name="timestamp_{{ loop.index0 }}" id="timestamp_{{ loop.index0 }}" class="form-control flex-grow-1">
+          <input type="datetime-local" name="timestamp_{{ loop.index0 }}"
+                 id="timestamp_{{ loop.index0 }}" class="form-control flex-grow-1">
 
-          <span id="timestamp-badge_{{ loop.index0 }}"
-                class="btn fw-bold text-white text-center px-0 badge-auto"
-                style="width:100px;height:38px;">
-            Auto
-          </span>
+          <span id="timestamp-badge_{{ loop.index0 }}" class="badge-auto">Auto</span>
 
-          <button type="button" class="btn btn-outline-secondary" id="timestamp-reset_{{ loop.index0 }}" disabled>
-            Réinitialiser
-          </button>
+          <button type="button" class="btn btn-outline-secondary"
+                  id="timestamp-reset_{{ loop.index0 }}" disabled>Réinitialiser</button>
         </div>
-        <div id="timestamp-warning_{{ loop.index0 }}" class="form-text text-warning d-flex align-items-center gap-1">
-          <i class="bi-exclamation-triangle-fill"></i>
+
+        <div id="timestamp-warning_{{ loop.index0 }}"
+             class="form-text text-warning d-none">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>
           Aucun horodatage détecté automatiquement&nbsp;: veuillez saisir une valeur.
         </div>
       </div>
 
-      <!-- Location -->
+      <!-- ---------- Location ---------- -->
       <div class="mb-3">
-        <label for="location_{{ loop.index0 }}" class="form-label">Localisation</label>
+        <label class="form-label" for="location_{{ loop.index0 }}">Localisation</label>
         <div class="d-flex align-items-stretch gap-2">
-          <input type="text" name="location_{{ loop.index0 }}" id="location_{{ loop.index0 }}" class="form-control flex-grow-1" placeholder="Adresse ou coordonnées GPS">
+          <input type="text" name="location_{{ loop.index0 }}"
+                 id="location_{{ loop.index0 }}" class="form-control flex-grow-1"
+                 placeholder="Adresse ou coordonnées GPS">
 
-          <span id="location-badge_{{ loop.index0 }}"
-                class="btn fw-bold text-white text-center px-0 badge-auto"
-                style="width:100px;height:38px;">
-            Auto
-          </span>
+          <span id="location-badge_{{ loop.index0 }}" class="badge-auto">Auto</span>
 
-          <button type="button" class="btn btn-outline-secondary" id="location-reset_{{ loop.index0 }}" disabled>
-            Réinitialiser
-          </button>
+          <button type="button" class="btn btn-outline-secondary"
+                  id="location-reset_{{ loop.index0 }}" disabled>Réinitialiser</button>
         </div>
-        <div id="location-warning_{{ loop.index0 }}" class="form-text text-warning d-flex align-items-center gap-1">
-          <i class="bi-exclamation-triangle-fill"></i>
+
+        <div id="location-warning_{{ loop.index0 }}"
+             class="form-text text-warning d-none">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>
           Aucune localisation détectée automatiquement&nbsp;: veuillez saisir une valeur.
         </div>
       </div>
@@ -96,102 +93,94 @@
 </form>
 
 <style>
-  /* reuse same style class for all badges so we can toggle color easily */
-  .badge-auto {
-    background-color:#0dcaf0;
-    pointer-events:none;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-family:system-ui,sans-serif;
-    padding:0;
-    line-height:1;
-  }
+.badge-auto{
+  width:100px;height:38px;background:#0dcaf0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:system-ui,sans-serif;font-weight:700;color:#fff;padding:0
+}
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
 
-    document.querySelectorAll('.upload-card').forEach(card => {
-      const idx = card.dataset.index;
+  document.querySelectorAll('.upload-card').forEach(card => {
+    const idx             = card.dataset.idx;
+    const autoLabel       = card.dataset.autoLabel     || 'full';
+    const autoTimestamp   = card.dataset.autoTimestamp || '';
+    const autoLocation    = card.dataset.autoLocation  || '';
 
-      const autoLabel = card.dataset.autoLabel || 'full';
-      const autoTimestamp = card.dataset.autoTimestamp || '';
-      const autoLocation = card.dataset.autoLocation || '';
+    // ---- form fields ----------------------------------------------------
+    const labelSelect     = card.querySelector(`#label_${idx}`);
+    const tsInput         = card.querySelector(`#timestamp_${idx}`);
+    const locInput        = card.querySelector(`#location_${idx}`);
 
-      // Elements
-      const labelSelect = card.querySelector(`#label_${idx}`);
-      const timestampInput = card.querySelector(`#timestamp_${idx}`);
-      const locationInput = card.querySelector(`#location_${idx}`);
+    const labelManField   = card.querySelector(`#label_manual_${idx}`);
+    const tsManField      = card.querySelector(`#timestamp_manual_${idx}`);
+    const locManField     = card.querySelector(`#location_manual_${idx}`);
+    const isManField      = card.querySelector(`#is_manual_${idx}`);
 
-      const isManualField = card.querySelector(`#is_manual_${idx}`);
+    // ---- visual helpers -------------------------------------------------
+    const labelBadge      = card.querySelector(`#label-badge_${idx}`);
+    const tsBadge         = card.querySelector(`#timestamp-badge_${idx}`);
+    const locBadge        = card.querySelector(`#location-badge_${idx}`);
 
-      // Reset buttons
-      const labelResetBtn = card.querySelector(`#label-reset_${idx}`);
-      const timestampResetBtn = card.querySelector(`#timestamp-reset_${idx}`);
-      const locationResetBtn = card.querySelector(`#location-reset_${idx}`);
+    const labelReset      = card.querySelector(`#label-reset_${idx}`);
+    const tsReset         = card.querySelector(`#timestamp-reset_${idx}`);
+    const locReset        = card.querySelector(`#location-reset_${idx}`);
 
-      // Badges
-      const labelBadge = card.querySelector(`#label-badge_${idx}`);
-      const timestampBadge = card.querySelector(`#timestamp-badge_${idx}`);
-      const locationBadge = card.querySelector(`#location-badge_${idx}`);
+    const tsWarn          = card.querySelector(`#timestamp-warning_${idx}`);
+    const locWarn         = card.querySelector(`#location-warning_${idx}`);
 
-      // Warnings
-      const timestampWarning = card.querySelector(`#timestamp-warning_${idx}`);
-      const locationWarning = card.querySelector(`#location-warning_${idx}`);
+    const autoC  = '#0dcaf0';
+    const manuC  = '#6c757d';
 
-      function updateUI() {
-        const labelChanged = labelSelect.value !== autoLabel;
-        const timestampChanged = timestampInput.value !== autoTimestamp;
-        const locationChanged = locationInput.value !== autoLocation;
+    function refresh() {
+      const labelChanged = labelSelect.value !== autoLabel;
+      const tsChanged    = tsInput.value     !== autoTimestamp;
+      const locChanged   = locInput.value    !== autoLocation;
 
-        const isManual = labelChanged || timestampChanged || locationChanged;
-        isManualField.value = isManual ? 'true' : 'false';
+      // --- write strings so Flask gets them -----------------------------
+      labelManField.value = labelChanged ? "true" : "false";
+      tsManField.value    = tsChanged    ? "true" : "false";
+      locManField.value   = locChanged   ? "true" : "false";
+      isManField.value    = (labelChanged || tsChanged || locChanged) ? "true" : "false";
 
-        const autoColor = '#0dcaf0';
-        const manualColor = '#6c757d';
+      // --- badges -------------------------------------------------------
+      labelBadge.textContent = labelChanged ? 'Manuel' : 'Auto';
+      labelBadge.style.backgroundColor = labelChanged ? manuC : autoC;
 
-        // badges
-        labelBadge.textContent = labelChanged ? 'Manuel' : 'Auto';
-        labelBadge.style.backgroundColor = labelChanged ? manualColor : autoColor;
+      tsBadge.textContent = tsChanged ? 'Manuel' : 'Auto';
+      tsBadge.style.backgroundColor   = tsChanged ? manuC : autoC;
 
-        timestampBadge.textContent = timestampChanged ? 'Manuel' : 'Auto';
-        timestampBadge.style.backgroundColor = timestampChanged ? manualColor : autoColor;
+      locBadge.textContent = locChanged ? 'Manuel' : 'Auto';
+      locBadge.style.backgroundColor  = locChanged ? manuC : autoC;
 
-        locationBadge.textContent = locationChanged ? 'Manuel' : 'Auto';
-        locationBadge.style.backgroundColor = locationChanged ? manualColor : autoColor;
+      // --- reset buttons & warnings -------------------------------------
+      labelReset.disabled = !labelChanged;
+      tsReset.disabled    = !tsChanged;
+      locReset.disabled   = !locChanged;
 
-        // reset buttons
-        labelResetBtn.disabled = !labelChanged;
-        timestampResetBtn.disabled = !timestampChanged;
-        locationResetBtn.disabled = !locationChanged;
+      tsWarn.classList.toggle('d-none', !(autoTimestamp === '' && tsInput.value === ''));
+      locWarn.classList.toggle('d-none', !(autoLocation  === '' && locInput.value === ''));
+    }
 
-        // warnings
-        const showTimestampWarning = autoTimestamp === '' && timestampInput.value === '';
-        const showLocationWarning = autoLocation === '' && locationInput.value === '';
+    /* --------- wired actions --------- */
+    labelReset.addEventListener('click', () => { labelSelect.value = autoLabel; refresh(); });
+    tsReset.addEventListener   ('click', () => { tsInput.value     = autoTimestamp; refresh(); });
+    locReset.addEventListener  ('click', () => { locInput.value    = autoLocation;  refresh(); });
 
-        timestampWarning.classList.toggle('d-none', !showTimestampWarning);
-        locationWarning.classList.toggle('d-none', !showLocationWarning);
-      }
+    labelSelect.addEventListener('change', refresh);
+    tsInput.addEventListener    ('input',  refresh);
+    locInput.addEventListener   ('input',  refresh);
 
-      // Reset actions
-      labelResetBtn.addEventListener('click', () => { labelSelect.value = autoLabel; updateUI(); });
-      timestampResetBtn.addEventListener('click', () => { timestampInput.value = autoTimestamp; updateUI(); });
-      locationResetBtn.addEventListener('click', () => { locationInput.value = autoLocation; updateUI(); });
-
-      // Change listeners
-      labelSelect.addEventListener('change', updateUI);
-      timestampInput.addEventListener('input', updateUI);
-      locationInput.addEventListener('input', updateUI);
-
-      // Initial pre-fill
-      labelSelect.value = autoLabel;
-      timestampInput.value = autoTimestamp;
-      locationInput.value = autoLocation;
-      updateUI();
-    });
-
+    // initial fill
+    labelSelect.value = autoLabel;
+    tsInput.value     = autoTimestamp;
+    locInput.value    = autoLocation;
+    refresh();
   });
+
+});
 </script>
 
 {% endblock %}

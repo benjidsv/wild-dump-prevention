@@ -2,7 +2,7 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 
-<h2>📊 Statistiques de tri</h2>
+<h2>Statistiques de tri</h2>
 
 <form method="GET" class="row g-3 mb-4">
   <div class="col-md-4">
@@ -18,12 +18,12 @@
   </div>
 </form>
 
-<canvas id="pieChart" width="300" height="300"></canvas>
+<h2>Carte des poubelles</h2>
+<div id="map" style="height: 500px;"></div>
 
 <hr class="my-4">
 
-<h2>🗺️ Carte des poubelles</h2>
-<div id="map" style="height: 500px;"></div>
+<canvas id="pieChart" width="300" height="300"></canvas>
 
 <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
@@ -33,7 +33,8 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // --- Chart.js ---
+
+  /* ---------- Chart.js ---------- */
   const data = {
     labels: ['Pleine', 'Vide'],
     datasets: [{
@@ -41,33 +42,63 @@ document.addEventListener('DOMContentLoaded', () => {
       backgroundColor: ['#dc3545', '#198754']
     }]
   };
-  new Chart('#pieChart', { type: 'pie', data, options: {responsive:true,plugins:{legend:{position:'bottom'},title:{display:true,text:'Répartition des annotations'}}}});
 
-  // --- Leaflet ---
+  new Chart(
+    document.getElementById('pieChart'),   // pass the element, not '#id'
+    {
+      type: 'pie',
+      data: data,
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          title:  { display: true, text: 'Répartition des annotations' }
+        }
+      }                 // ← 1st closing brace: options
+    }                   // ← 2nd closing brace: outer config
+  );                    // ← finishes new Chart(...)
+
+  /* ---------- Leaflet ---------- */
   const map = L.map('map').setView([46.6, 2.4], 6);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18,
-      attribution: '© OpenStreetMap contributors'
+    maxZoom: 18,
+    attribution: '© OpenStreetMap contributors'
   }).addTo(map);
 
-  const locations = {{ locations_coords|tojson|default('[]', true) }};
-  console.log(locations);
+  const locations = {{ locations_coords | tojson | default('[]', true) }};
+  const latLngs   = [];
+
   locations.forEach(loc => {
     if (loc.lat == null || loc.lon == null) return;
-    const pinColor = loc.label === 'full' ? 'red' :
-                     loc.label === 'empty' ? 'green' : 'blue';
-    const circle = L.circleMarker([loc.lat, loc.lon], {
-      radius: 8, weight: 1, color:'#000',
-      fillColor: pinColor, fillOpacity: 0.8
-    }).addTo(map);
-    circle.bindPopup(
+
+    const pinColor = loc.label === 'full'  ? 'red'  :
+                     loc.label === 'empty' ? 'green': 'blue';
+
+    L.circleMarker([loc.lat, loc.lon], {
+      radius: 8,
+      fillColor: pinColor,
+      color: '#000',
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 0.8
+    })
+    .addTo(map)
+    .bindPopup(
       `Statut : <strong>${loc.label}</strong><br>` +
       `Lat : ${loc.lat.toFixed(5)}<br>` +
       `Lon : ${loc.lon.toFixed(5)}`
     );
-  });
-});
-</script>
 
+    latLngs.push([loc.lat, loc.lon]);
+  });
+
+  if (latLngs.length) {
+    map.fitBounds(latLngs, { padding: [20, 20] });
+  } else {
+    map.setView([46.6, 2.4], 6);
+  }
+
+});  /* ← closes DOMContentLoaded callback */
+</script>
 
 {% endblock %}
