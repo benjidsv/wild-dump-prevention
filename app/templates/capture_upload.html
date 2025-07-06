@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Capture & Upload{% endblock %}
 {% block content %}
-<h2 class="mb-4">📸 Prendre une photo et l’envoyer</h2>
+<div class="cont">
+<h2 class="mb-4 text-center">Prendre une photo et l’envoyer</h2>
 
+  <div class="d-flex flex-column align-items-center gap-3">
 <!-- Video preview -->
 <div class="mb-3">
-  <video id="preview" class="w-100 border rounded" playsinline autoplay></video>
+  <video id="preview" class="w-80 border rounded w-md-75 w-lg-50 mx-auto" playsinline autoplay></video>
 </div>
 
 <!-- Form automatically filled by JS -->
@@ -17,65 +19,49 @@
   <input type="hidden" name="label" value="auto">
   <input type="hidden" name="is_manual" value="false">
 
-  <button type="button" id="snapBtn" class="btn btn-primary btn-lg">📷 Capturer</button>
+  <button type="button" id="snapBtn" class="btn btn-primary btn-lg"><i class="bi bi-camera-video me-1"></i> Capturer</button>
 </form>
 
 <canvas id="snapshotCanvas" class="d-none"></canvas>
-
+</div>
 <script>
 (async () => {
-  const video   = document.getElementById('preview');
-  const canvas  = document.getElementById('snapshotCanvas');
-  const ctx     = canvas.getContext('2d');
-  const snapBtn = document.getElementById('snapBtn');
+  const video  = document.getElementById('preview');
+  const canvas = document.getElementById('snapshotCanvas');
+  const ctx    = canvas.getContext('2d');
+  const btn    = document.getElementById('snapBtn');
+  const formEl = document.getElementById('captureForm');
 
-  /* ---------- 1. Get camera stream ---------- */
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-    video.srcObject = stream;
-  } catch (err) {
-    alert('Impossible d’accéder à la caméra : ' + err.message);
-    return;
-  }
+  /* camera */
+  const stream = await navigator.mediaDevices.getUserMedia({ video:{facingMode:'environment'}});
+  video.srcObject = stream;
 
-  /* ---------- 2. Capture & submit ---------- */
-  snapBtn.addEventListener('click', async () => {
-    // Resize canvas to video frame
+  /* capture */
+  btn.addEventListener('click', () => {
     canvas.width  = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Convert to blob
     canvas.toBlob(async blob => {
       if (!blob) return;
 
-      // Build FormData manually (faster than hidden file input trick)
-      const form = new FormData();
-      form.append('image',   blob, `capture_${Date.now()}.jpg`);
-      form.append('timestamp', new Date().toISOString().slice(0,16)); // YYYY-MM-DDTHH:MM
+      /* Build body – includes csrf automatically */
+      const body = new FormData(formEl);
+      body.set('image', blob, `capture_${Date.now()}.jpg`);
+      body.set('timestamp', new Date().toISOString().slice(0,16));
 
+      /* optional geo */
       try {
-        const geo = await new Promise(resolve =>
-          navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy:true, maximumAge:60000, timeout:5000 })
-        );
-        if (geo) {
-          form.append('location', `${geo.coords.latitude},${geo.coords.longitude}`);
-        }
-      } catch { /* silently ignore */ }
+        const g = await new Promise(r => navigator.geolocation.getCurrentPosition(r, () => r(null)));
+        if (g) body.set('location', `${g.coords.latitude},${g.coords.longitude}`);
+      } catch {}
 
-      // Extra fields
-      form.append('label', 'auto');
-      form.append('is_manual', 'false');
-
-      // POST to server
-      const resp = await fetch('{{ url_for('main.quick_upload') }}', { method:'POST', body: form });
-      if (resp.redirected) {
-        window.location = resp.url; // follow Flask redirect to /upload or similar
-      } else if (!resp.ok) {
-        alert('Erreur lors de l’envoi (code ' + resp.status + ')');
-      }
-    }, 'image/jpeg', 0.9);
+      /* send */
+      const r = await fetch(formEl.action, { method:'POST', body });
+      if (r.redirected) window.location = r.url;
+    }, 'image/jpeg', .9);
   });
 })();
 </script>
+
 {% endblock %}

@@ -334,6 +334,7 @@ def lat_lon_from_string(latlon_str):
 @main.route("/quick_upload", methods=["POST"])
 @login_required
 def quick_upload():
+    print(request)
     file = request.files.get("image")
     if not file:
         flash("Erreur : aucune image reçue.", "danger")
