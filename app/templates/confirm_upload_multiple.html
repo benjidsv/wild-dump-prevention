@@ -99,6 +99,20 @@
   display:flex;align-items:center;justify-content:center;
   font-family:system-ui,sans-serif;font-weight:700;color:#fff;padding:0
 }
+#suggestions{
+  border:1px solid #ccc;
+  max-width:300px;
+  position:absolute;
+  background-color:#fff;
+  z-index:1000
+}
+#suggestions div{
+  padding:8px;
+  cursor:pointer
+}
+#suggestions div:hover{
+  background-color:#f0f0f0
+}
 </style>
 
 <script>
@@ -179,6 +193,69 @@ document.addEventListener('DOMContentLoaded', () => {
     tsInput.value     = autoTimestamp;
     locInput.value    = autoLocation;
     refresh();
+  });
+
+  /* --------- Autocomplétion d'adresse --------- */
+  const suggestionsBox = document.createElement('div');
+  suggestionsBox.id = 'suggestions';
+  document.body.appendChild(suggestionsBox);
+
+  const addrCache = {};
+  let addrTimer;
+
+  function showAddrSuggestions(addrs, targetInput) {
+    suggestionsBox.innerHTML = '';
+    if (addrs.length === 0) {
+      suggestionsBox.style.display = 'none';
+      return;
+    }
+    addrs.forEach(addr => {
+      const div = document.createElement('div');
+      div.textContent = addr;
+      div.addEventListener('click', () => {
+        targetInput.value = addr;
+        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        suggestionsBox.style.display = 'none';
+      });
+      suggestionsBox.appendChild(div);
+    });
+    const rect = targetInput.getBoundingClientRect();
+    suggestionsBox.style.left = (rect.left + window.scrollX) + 'px';
+    suggestionsBox.style.top  = (rect.bottom + window.scrollY) + 'px';
+    suggestionsBox.style.width = rect.width + 'px';
+    suggestionsBox.style.display = 'block';
+  }
+
+  function fetchAddr(query, targetInput) {
+    if (addrCache[query]) {
+      showAddrSuggestions(addrCache[query], targetInput);
+      return;
+    }
+    fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`)
+      .then(res => res.json())
+      .then(data => {
+        const results = data.features.map(f => f.properties.label);
+        addrCache[query] = results;
+        showAddrSuggestions(results, targetInput);
+      });
+  }
+
+  document.querySelectorAll('input[id^="location_"]').forEach(input => {
+    input.addEventListener('input', (e) => {
+      if (!e.isTrusted) return; // Ignore programmatic changements (sélection)
+      clearTimeout(addrTimer);
+      const q = input.value.trim();
+      if (q.length < 3) {
+        suggestionsBox.style.display = 'none';
+        return;
+      }
+      addrTimer = setTimeout(() => fetchAddr(q, input), 400);
+    });
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        suggestionsBox.style.display = 'none';
+      }, 200);
+    });
   });
 
 });

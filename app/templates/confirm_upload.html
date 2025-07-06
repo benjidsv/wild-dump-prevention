@@ -2,7 +2,7 @@
 {% block title %}{% if edit_mode %}Éditer l'image{% else %}Confirmer l'envoi{% endif %}{% endblock %}
 {% block content %}
 
-<h2 class="mb-3">{% if edit_mode %}Modifier les métadonnées{% else %}Vérifiez l’image et ses données{% endif %}</h2>
+<h2 class="mb-3">{% if edit_mode %}Modifier les métadonnées{% else %}Vérifiez l'image et ses données{% endif %}</h2>
 
 <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="img-fluid mb-3" style="max-height: 300px;" alt="Image uploadée">
 
@@ -64,7 +64,7 @@
     <div id="location-warning" class="form-text text-warning d-none">Aucune localisation détectée automatiquement&nbsp;: veuillez saisir une valeur.</div>
   </div>
 
-  <button type="submit" class="btn btn-success">{% if edit_mode %}Enregistrer{% else %}Valider l’image{% endif %}</button>
+  <button type="submit" class="btn btn-success">{% if edit_mode %}Enregistrer{% else %}Valider l'image{% endif %}</button>
   <a href="{{ url_for('main.upload') }}" class="btn btn-link">Annuler</a>
 </form>
 
@@ -78,6 +78,21 @@
     font-family:system-ui,sans-serif;
     padding:0;
     line-height:1;
+  }
+  /* Styles pour la boîte de suggestions d'adresse */
+  #suggestions{
+    border:1px solid #ccc;
+    max-width:300px;
+    position:absolute;
+    background-color:#fff;
+    z-index:1000;
+  }
+  #suggestions div{
+    padding:8px;
+    cursor:pointer;
+  }
+  #suggestions div:hover{
+    background-color:#f0f0f0;
   }
 </style>
 
@@ -158,6 +173,66 @@ window.addEventListener('DOMContentLoaded', ()=>{
   labelResetBtn.addEventListener('click', resetLabel);
   timestampResetBtn.addEventListener('click', resetTimestamp);
   locationResetBtn.addEventListener('click', resetLocation);
+
+  /* --------- Autocomplétion d'adresse --------- */
+  const suggestionsBox = document.createElement('div');
+  suggestionsBox.id = 'suggestions';
+  document.body.appendChild(suggestionsBox);
+
+  const addrCache = {};
+  let addrTimer;
+
+  function showAddrSuggestions(addrs){
+    suggestionsBox.innerHTML = '';
+    if(addrs.length === 0){
+      suggestionsBox.style.display = 'none';
+      return;
+    }
+    addrs.forEach(addr => {
+      const div = document.createElement('div');
+      div.textContent = addr;
+      div.addEventListener('click', () => {
+        locationInput.value = addr;
+        locationInput.dispatchEvent(new Event('input', { bubbles:true }));
+        suggestionsBox.style.display = 'none';
+      });
+      suggestionsBox.appendChild(div);
+    });
+    const rect = locationInput.getBoundingClientRect();
+    suggestionsBox.style.left   = (rect.left + window.scrollX) + 'px';
+    suggestionsBox.style.top    = (rect.bottom + window.scrollY) + 'px';
+    suggestionsBox.style.width  = rect.width + 'px';
+    suggestionsBox.style.display= 'block';
+  }
+
+  function fetchAddr(query){
+    if(addrCache[query]){
+      showAddrSuggestions(addrCache[query]);
+      return;
+    }
+    fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`)
+      .then(res => res.json())
+      .then(data => {
+        const results = data.features.map(f => f.properties.label);
+        addrCache[query] = results;
+        showAddrSuggestions(results);
+      });
+  }
+
+  locationInput.addEventListener('input', (e) => {
+    if(!e.isTrusted) return; // Ignorer les modifications programmatiques
+    clearTimeout(addrTimer);
+    const q = locationInput.value.trim();
+    if(q.length < 3){
+      suggestionsBox.style.display = 'none';
+      return;
+    }
+    addrTimer = setTimeout(() => fetchAddr(q), 400);
+  });
+
+  locationInput.addEventListener('blur', () => {
+    setTimeout(() => { suggestionsBox.style.display = 'none'; }, 200);
+  });
 });
 </script>
 
