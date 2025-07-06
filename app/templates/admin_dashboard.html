@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Gestion des comptes{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">🔒 Gestion des utilisateurs</h1>
+
+{% if current_user.is_superadmin %}
+  <div class="alert alert-info small">
+    <i class="bi bi-shield-lock me-1"></i>
+    Vous êtes connecté en tant que <strong>SUPER-ADMIN</strong> : vous pouvez promouvoir/dégrader
+    des administrateurs et supprimer n’importe quel compte.
+  </div>
+{% else %}
+  <div class="alert alert-warning small">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    Vous êtes administrateur mais <strong>pas</strong> super-admin.
+    Vous ne pouvez pas modifier les statuts d’autres administrateurs.
+  </div>
+{% endif %}
+
+<table class="table table-hover align-middle">
+  <thead class="table-light">
+    <tr>
+      <th>#</th>
+      <th>Nom</th>
+      <th>Email</th>
+      <th>Rôle</th>
+      <th class="text-end">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ u.id }}</td>
+      <td>
+        {{ u.name }}
+        {% if u.is_superadmin %}
+          <span class="badge bg-danger ms-1" title="Super-admin">🌟</span>
+        {% elif u.is_admin %}
+          <span class="badge bg-primary ms-1" title="Admin">Admin</span>
+        {% endif %}
+        {% if u.id == current_user.id %}
+          <span class="badge bg-secondary ms-1">moi</span>
+        {% endif %}
+      </td>
+      <td class="text-muted">{{ u.mail }}</td>
+      <td>
+        {% if u.is_superadmin %}Super-admin
+        {% elif u.is_admin %}Admin
+        {% else %}Utilisateur
+        {% endif %}
+      </td>
+
+      {# -------- Actions column -------- #}
+      <td class="text-end">
+        {# --- Toggle admin (only super-admin & can’t modify another super-admin) --- #}
+        {% if current_user.is_superadmin and not u.is_superadmin and u.id != current_user.id %}
+          <form method="POST" action="{{ url_for('main.toggle_admin', user_id=u.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit"
+                    class="btn btn-sm {{ 'btn-warning' if u.is_admin else 'btn-success' }}"
+                    title="{{ 'Retirer le rôle admin' if u.is_admin else 'Promouvoir en admin' }}"
+                    onclick="return confirm('{{ 'Retirer' if u.is_admin else 'Promouvoir' }} les droits admin ?');">
+              <i class="bi {{ 'bi-person-dash' if u.is_admin else 'bi-person-plus' }}"></i>
+            </button>
+          </form>
+        {% endif %}
+
+        {# --- Delete account (super-admin can delete anyone, admin can delete self) --- #}
+        {% if current_user.is_superadmin or u.id == current_user.id %}
+          <form method="POST" action="{{ url_for('main.delete_user', user_id=u.id) }}"
+                class="d-inline"
+                onsubmit="return confirm('Supprimer définitivement le compte {{ u.name }} ?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer le compte">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="text-center text-muted py-4">Aucun utilisateur.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

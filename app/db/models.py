@@ -1,44 +1,44 @@
-from app.extensions import db
+from app.extensions import database
 from datetime import datetime
 
-class Image(db.Model):
+class Image(database.Model):
     __tablename__ = "image"
-    id = db.Column(db.Integer, primary_key=True)
-    path = db.Column(db.String(200))
-    label = db.Column(db.String(10))  # full or empty
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)  # ✅ New
-    label_manual = db.Column(db.Boolean, default=False)  # FALSE = auto/rules
-    timestamp_manual = db.Column(db.Boolean, default=False)
-    location_manual = db.Column(db.Boolean, default=False)
+    id = database.Column(database.Integer, primary_key=True)
+    path = database.Column(database.String(200))
+    label = database.Column(database.String(10))  # full or empty
+    timestamp = database.Column(database.DateTime, default=datetime.utcnow)  # ✅ New
+    label_manual = database.Column(database.Boolean, default=False)  # FALSE = auto/rules
+    timestamp_manual = database.Column(database.Boolean, default=False)
+    location_manual = database.Column(database.Boolean, default=False)
 
     # FK vers Location (une seule location par image)
-    location_id = db.Column(db.Integer, db.ForeignKey("location.id", ondelete="CASCADE"), nullable=False)
-    location = db.relationship("Location", back_populates="images")
+    location_id = database.Column(database.Integer, database.ForeignKey("location.id", ondelete="CASCADE"), nullable=False)
+    location = database.relationship("Location", back_populates="images")
 
     # FK vers User
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    user_id = database.Column(database.Integer, database.ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
 
 
-class User(db.Model):
+class User(database.Model):
     __tablename__ = "user"
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200))
-    mail = db.Column(db.String(200))
-    password = db.Column(db.String(300))
-    is_admin = db.Column(db.Boolean, default=False)
-    
+    id = database.Column(database.Integer, primary_key=True)
+    name = database.Column(database.String(200))
+    mail = database.Column(database.String(200))
+    password = database.Column(database.String(300))
+    is_admin = database.Column(database.Boolean, default=False)
+    is_superadmin = database.Column(database.Boolean, default=False)
 
-    images = db.relationship("Image", backref="user", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    images = database.relationship("Image", backref="user", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
 
-class Location(db.Model):
+class Location(database.Model):
     __tablename__ = "location"
-    id = db.Column(db.Integer, primary_key=True)
-    address = db.Column(db.String(200))
-    longitude = db.Column(db.Float)
-    latitude  = db.Column(db.Float)
+    id = database.Column(database.Integer, primary_key=True)
+    address = database.Column(database.String(200))
+    longitude = database.Column(database.Float)
+    latitude  = database.Column(database.Float)
 
     # 1 location ➜ plusieurs images
-    images = db.relationship("Image", back_populates="location", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    images = database.relationship("Image", back_populates="location", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
 
     
 

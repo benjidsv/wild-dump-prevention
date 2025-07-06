@@ -7,6 +7,7 @@
 <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="img-fluid mb-3" style="max-height: 300px;" alt="Image uploadée">
 
 <form method="POST" action="{{ url_for('main.update_image') if edit_mode else url_for('main.confirm_upload') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   {% if edit_mode %}
     <input type="hidden" name="image_id" value="{{ image_id }}">
   {% else %}

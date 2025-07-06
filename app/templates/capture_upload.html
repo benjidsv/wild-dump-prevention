@@ -10,6 +10,7 @@
 
 <!-- Form automatically filled by JS -->
 <form id="captureForm" method="POST" action="{{ url_for('main.quick_upload') }}" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="image" id="imageInput">
   <input type="hidden" name="timestamp" id="timestampInput">
   <input type="hidden" name="location" id="locationInput">

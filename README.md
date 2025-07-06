@@ -102,15 +102,14 @@ wild-dump-prevention/
    # Edit SECRET_KEY or DATABASE_URL if needed
    ```
 
-4. **Run flask shell**
+4. **Initialize the database in flask**
    ```bash
-   flask shell
-   >>> from app.extensions import db
-   >>> from app.db.models import Feature, Image
-   >>> db.create_all()
+   flask --help
+   flask create-db
+   flask create-superuser
    ```
    
-6. **Run the application**
+5. **Run the application**
    ```bash
    python main.py        # development
    # or

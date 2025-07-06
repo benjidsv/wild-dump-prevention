@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 import os
 from app.classification.rules import classify_image_by_rules
 from app.db.models import Image, User, Location
-from app.extensions import db
+from app.extensions import database
 from datetime import datetime
 from PIL import Image as PILImage
 from PIL.ExifTags import TAGS, GPSTAGS
@@ -62,32 +62,36 @@ def extract_exif_timestamp(image_path):
 
         return None
 
-def add_image_to_db(filename, address, timestamp_str, label, label_manual, timestamp_manual, address_manual):
+def add_image_to_db(filename, address, timestamp_str, label, label_manual, timestamp_manual, address_manual, address_is_location = False):
     timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M")
 
-    # If the location is already in the db, no need to recreate
-    location = (
-        Location.query.filter_by(address=address).first()
-        if address else None
-    )
+    if address_is_location:
+        location = address
+    else:
+        # If the location is already in the db, no need to recreate
+        location = (
+            Location.query.filter_by(address=address).first()
+            if address else None
+        )
 
-    # Else geocode it
-    if not location and address:
-        geolocator = Nominatim(user_agent="wild-dump-prevention/1.0", timeout=5)
-        try:
-            # Nominatim courtesy delay: 1 req/sec max from one client
-            time.sleep(1.1)
-            loc = geolocator.geocode(address, exactly_one=True)
-        except GeocoderServiceError:
-            print("GeocoderServiceError")
-            loc = None
+        # Else geocode it
+        if not location and address:
+            geolocator = Nominatim(user_agent="wdp/1.0", timeout=5)
+            try:
+                # Nominatim courtesy delay: 1 req/sec max from one client
+                time.sleep(1.1)
+                loc = geolocator.geocode(address, exactly_one=True)
+            except GeocoderServiceError:
+                print("GeocoderServiceError")
+                loc = None
 
-        lat = float(loc.latitude) if loc else None
-        lon = float(loc.longitude) if loc else None
+            lat = float(loc.latitude) if loc else None
+            lon = float(loc.longitude) if loc else None
 
-        location = Location(address=address, latitude=lat, longitude=lon)
-        db.session.add(location)
-        db.session.flush()
+            location = Location(address=address, latitude=lat, longitude=lon)
+
+    database.session.add(location)
+    database.session.flush()
 
     img = Image(
         path=os.path.join(current_app.config["UPLOAD_FOLDER"], filename),
@@ -99,8 +103,8 @@ def add_image_to_db(filename, address, timestamp_str, label, label_manual, times
         timestamp_manual=timestamp_manual,
         location_manual=address_manual,
     )
-    db.session.add(img)
-    db.session.commit()
+    database.session.add(img)
+    database.session.commit()
 
 # --------- Décorateur pour accès admin ---------
 def admin_required(f):
@@ -117,6 +121,22 @@ def admin_required(f):
             return render_template("unauthorized.html"), 403
 
         return f(*args, **kwargs)
+
+    return decorated_function
+
+def superadmin_required(f):
+    @wraps(f)
+    def decorated_function(*a, **kw):
+        user_id = session.get("user_id")
+        if not user_id:
+            flash("Veuillez vous connecter pour accéder à cette page.", "warning")
+            return redirect(url_for("main.login"))
+
+        user = User.query.get(user_id)
+        if not user or not user.is_superadmin:
+            return render_template("unauthorized.html"), 403
+
+        return f(*a, **kw)
 
     return decorated_function
 
@@ -279,8 +299,8 @@ def confirm_upload_multiple():
                     latitude  = geo.latitude  if geo else None,
                     longitude = geo.longitude if geo else None,
                 )
-                db.session.add(location)
-                db.session.flush()
+                database.session.add(location)
+                database.session.flush()
 
         # ------------- add Image -----------------------------------
         img = Image(
@@ -293,9 +313,9 @@ def confirm_upload_multiple():
             location_manual   = loc_manual,
             location          = location,
         )
-        db.session.add(img)
+        database.session.add(img)
 
-    db.session.commit()
+    database.session.commit()
     flash("Images enregistrées ✅", "success")
     return redirect(url_for("main.upload"))
 
@@ -303,6 +323,13 @@ def confirm_upload_multiple():
 @login_required          # or @admin_required if only admins can use it
 def user_upload():
     return render_template("capture_upload.html")
+
+def lat_lon_from_string(latlon_str):
+    lat, lon = latlon_str.split(",")
+    lat = float(lat)
+    lon = float(lon)
+
+    return lat, lon
 
 @main.route("/quick_upload", methods=["POST"])
 @login_required
@@ -316,14 +343,19 @@ def quick_upload():
     filepath  = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
     file.save(filepath)
 
-    # Auto-label from your rules
+    # Auto-label from rules
     label_auto = classify_image_by_rules(filepath)
 
     # Values provided by the client (timestamp already ISO-ish)
     timestamp_str = request.form.get("timestamp")
-    address       = request.form.get("location", "").strip()
+    geolocator = Nominatim(user_agent="wdp/1.0", timeout=5)
+    # The form passes a "lat, lon" string
+    location_str = request.form.get("location").strip()
+    location_geopy = geolocator.reverse(location_str, exactly_one=True)
+    lat, lon = lat_lon_from_string(location_str)
+    location = Location(address = location_geopy.address, latitude = lat, longitude = lon)
 
-    add_image_to_db(filename, address, timestamp_str, label_auto, False, False, False)
+    add_image_to_db(filename, location, timestamp_str, label_auto, False, False, False, True)
     flash("Image enregistrée ✅", "success")
     return redirect(url_for("main.upload"))
 
@@ -382,8 +414,8 @@ def delete_image(image_id):
         pass  # file already gone / cannot delete -> ignore
 
     # --- delete DB row ---
-    db.session.delete(img)
-    db.session.commit()
+    database.session.delete(img)
+    database.session.commit()
 
     flash("Image supprimée.", "success")
     return redirect(url_for("main.upload"))
@@ -442,15 +474,15 @@ def update_image():
             lat = geo.latitude if geo else None
             lon = geo.longitude if geo else None
             loc = Location(address=address, latitude=lat, longitude=lon)
-            db.session.add(loc)
-            db.session.flush()
+            database.session.add(loc)
+            database.session.flush()
         img.location = loc
         img.location_manual = True
         changed = True
 
     # ---------- COMMIT ----------
     if changed:
-        db.session.commit()
+        database.session.commit()
         flash("Image mise à jour ✅", "success")
     else:
         flash("Aucune modification détectée.", "info")
@@ -506,7 +538,7 @@ def dashboard():
 
     # ------------- Distinct addresses ----------------- #
     all_locations = (
-        db.session.query(Location.address)
+        database.session.query(Location.address)
         .join(Image)
         .distinct()
         .order_by(Location.address)
@@ -556,8 +588,8 @@ def register():
 
         # Création de l'utilisateur
         user = User(name=name, mail=email, password=hashed_password, is_admin=False)
-        db.session.add(user)
-        db.session.commit()
+        database.session.add(user)
+        database.session.commit()
 
         flash("Compte créé avec succès ! Veuillez vous connecter.", "success")
         return redirect(url_for("main.login"))
@@ -587,3 +619,33 @@ def logout():
     session.pop("user_id", None)   # forget who was logged-in
     flash("Vous êtes maintenant déconnecté·e.", "info")
     return redirect(url_for("main.dashboard"))
+
+@main.route("/admin/users")
+@admin_required
+def admin_dashboard():
+    users = User.query.order_by(User.id).all()
+    return render_template("admin_dashboard.html", users=users)
+
+@main.route("/admin/users/<int:user_id>/toggle-admin", methods=["POST"])
+@superadmin_required
+def toggle_admin(user_id):
+    user = User.query.get_or_404(user_id)
+    if user.id == session.get("user_id"):
+        flash("Vous ne pouvez pas modifier votre propre rôle.", "warning")
+    else:
+        user.is_admin = not user.is_admin
+        database.session.commit()
+        flash("Rôle mis à jour ✅", "success")
+    return redirect(url_for("main.admin_dashboard"))
+
+@main.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+@superadmin_required
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    if user.is_superadmin:
+        flash("Impossible de supprimer le super-admin.", "danger")
+    else:
+        database.session.delete(user)
+        database.session.commit()
+        flash("Compte supprimé ✅", "success")
+    return redirect(url_for("main.admin_dashboard"))

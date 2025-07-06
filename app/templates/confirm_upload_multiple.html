@@ -5,6 +5,7 @@
 <h2 class="mb-4">Confirmer les images uploadées</h2>
 
 <form method="POST" action="{{ url_for('main.confirm_upload_multiple') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   {% for filename in filenames %}
   <div class="card mb-3 upload-card"
        data-idx="{{ loop.index0 }}"

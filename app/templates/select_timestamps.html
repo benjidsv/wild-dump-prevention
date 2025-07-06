@@ -22,6 +22,7 @@
 
 <form id="confirm-form" method="POST"
       action="{{ url_for('main.extract_from_video', video=video_filename) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <!-- les <input type=hidden name="timestamps"> seront injectés ici -->
   <button type="submit" class="btn btn-success" disabled id="confirm-btn">
     Extraire les images sélectionnées

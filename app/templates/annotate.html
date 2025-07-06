@@ -6,6 +6,7 @@
 <img src="{{ url_for('static', filename='uploads/' + image.path.split('/')[-1]) }}" class="img-fluid mb-3">
 
 <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button name="label" value="full" class="btn btn-danger">Pleine</button>
     <button name="label" value="empty" class="btn btn-success">Vide</button>
 </form>
