@@ -142,6 +142,7 @@ function setUploadMode() {
             <form method="POST"
                   action="{{ url_for('main.delete_image', image_id=img.id) }}"
                   onsubmit="return confirm('Supprimer cette image ?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="btn btn-sm btn-outline-danger w-100">
                 <i class="bi bi-trash me-1"></i>Supprimer
               </button>
@@ -157,5 +158,6 @@ function setUploadMode() {
 
 <style>
 .object-fit-contain { object-fit: contain; }
+.card-footer form { display: block; }
 </style>
 {% endblock %}

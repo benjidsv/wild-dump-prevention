@@ -6,9 +6,12 @@
 
   <div class="d-flex flex-column align-items-center gap-3">
 <!-- Video preview -->
+
 <div class="mb-3">
   <video id="preview" class="w-80 border rounded w-md-75 w-lg-50 mx-auto" playsinline autoplay></video>
+  <canvas id="snapshotCanvas" class="d-none w-80 border rounded w-md-75 w-lg-50 mx-auto"></canvas>
 </div>
+
 
 <!-- Form automatically filled by JS -->
 <form id="captureForm" method="POST" action="{{ url_for('main.quick_upload') }}" enctype="multipart/form-data">
@@ -21,8 +24,6 @@
 
   <button type="button" id="snapBtn" class="btn btn-primary btn-lg"><i class="bi bi-camera-video me-1"></i> Capturer</button>
 </form>
-
-<canvas id="snapshotCanvas" class="d-none"></canvas>
 </div>
 <script>
 (async () => {
@@ -41,6 +42,11 @@
     canvas.width  = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    video.classList.add('d-none');      // hide live preview
+    canvas.classList.remove('d-none');
+
+    video.srcObject.getTracks().forEach(t => t.stop());
 
     canvas.toBlob(async blob => {
       if (!blob) return;
