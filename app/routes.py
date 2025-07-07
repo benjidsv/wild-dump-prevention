@@ -629,7 +629,7 @@ def dashboard():
             bucket["full"] += 1
         bucket["lat"], bucket["lon"] = lt, ln  # keep centre
 
-    # convert to list the template can “tojson”
+    # convert to list the template can "tojson"
     danger_zones = [
         {
             "lat": b["lat"],
@@ -674,8 +674,10 @@ def register():
         database.session.add(user)
         database.session.commit()
 
-        flash("Compte créé avec succès ! Veuillez vous connecter.", "success", queue="register")
-        return redirect(url_for("main.login"))
+        # Connexion automatique après création du compte
+        session["user_id"] = user.id
+        flash("Compte créé et connecté avec succès !", "success", queue="register")
+        return redirect(url_for("main.dashboard"))
 
     return render_template("register.html")
 
@@ -685,15 +687,23 @@ def login():
         email = request.form.get("email")
         password = request.form.get("password")
 
+        # Priorité 1 : vérifier si l'adresse mail existe
         user = User.query.filter_by(mail=email).first()
-        if user and check_password_hash(user.password, password):
-            session["user_id"] = user.id
-            flash("Connexion réussie !", "success", queue="login")
-            return redirect(url_for("main.dashboard"))
+        if not user:
+            error_msg = "Adresse mail inconnue."
+            flash(error_msg, "danger", queue='login')
+            return render_template("login.html", error=error_msg, email=email)
 
-        error_msg = "Email ou mot de passe incorrect."
-        flash(error_msg, "danger", queue="login")
-        return render_template("login.html", error=error_msg, email=email)
+        # Priorité 2 : vérifier le mot de passe si l'email est valide
+        if not check_password_hash(user.password, password):
+            error_msg = "Mot de passe incorrect."
+            flash(error_msg, "danger", queue='login')
+            return render_template("login.html", error=error_msg, email=email)
+
+        # Succès
+        session["user_id"] = user.id
+        flash("Connexion réussie !", "success")
+        return redirect(url_for("main.dashboard"))
 
     return render_template("login.html")
 

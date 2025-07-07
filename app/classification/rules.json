@@ -1,0 +1,11 @@
+{
+  "edge_density": 0.05,
+  "texture_variance": 500,
+  "color_diversity": 800,
+  "contour_count": 20,
+  "brightness_low": 80,
+  "brightness_high": 180,
+  "avg_saturation": 100,
+  "file_size": 100000,
+  "full_score_thresh": 4
+}
