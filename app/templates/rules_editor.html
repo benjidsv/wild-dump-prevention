@@ -3,17 +3,6 @@
 {% block content %}
 
 <h2 class="mb-4">Seuils d’analyse d’images</h2>
-<!-- Flash messages (Bootstrap alerts) -->
-{% with messages = get_flashed_messages(with_categories=true, queue='rules') %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      </div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
 
 <!-- ------------- EDIT RULES FORM ------------------------------------------- -->
 <form method="POST" class="row row-cols-2 row-cols-md-3 g-3" action="{{ url_for('main.rules_edit') }}">

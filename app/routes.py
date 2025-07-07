@@ -4,7 +4,6 @@ import uuid
 import cv2
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash, session, abort, jsonify
 from geopy.exc import GeocoderServiceError, GeocoderTimedOut
-from geopy.extra.rate_limiter import RateLimiter
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
@@ -302,6 +301,8 @@ def confirm_upload():
 
     add_image_to_db(filename, address, timestamp_str, label, label_manual, timestamp_manual, address_manual)
 
+    flash("Image enregistrée !", "success")
+
     return redirect(url_for("main.upload"))
 
 @main.route("/confirm_multiple", methods=["POST"])
@@ -318,8 +319,6 @@ def confirm_upload_multiple():
         label_manual   = str_to_bool(request.form.get(f"label_manual_{idx}"))
         ts_manual      = str_to_bool(request.form.get(f"timestamp_manual_{idx}"))
         loc_manual     = str_to_bool(request.form.get(f"location_manual_{idx}"))
-
-        is_manual      = label_manual or ts_manual or loc_manual
 
         # ------------ resolve / build Location row -----------------
         location = None
@@ -352,7 +351,7 @@ def confirm_upload_multiple():
         database.session.add(img)
 
     database.session.commit()
-    flash("Images enregistrées ✅", "success")
+    flash("Images enregistrées !", "success")
     return redirect(url_for("main.upload"))
 
 @main.route("/user_upload")
@@ -414,7 +413,7 @@ def quick_upload():
     location = Location(address = address, latitude = lat, longitude = lon)
 
     add_image_to_db(filename, location, timestamp_str, label_auto, False, False, False, True)
-    flash("Image enregistrée", "success", queue='images')
+    flash("Image enregistrée !", 'success')
     return redirect(url_for("main.upload"))
 
 
@@ -475,7 +474,7 @@ def delete_image(image_id):
     database.session.delete(img)
     database.session.commit()
 
-    flash("Image supprimée.", "success", queue='images')
+    flash("Image supprimée.",'success')
     return redirect(url_for("main.upload"))
 
 @main.route("/edit_image/<int:image_id>")
@@ -516,7 +515,7 @@ def update_image():
                 img.timestamp_manual = True
                 changed = True
         except ValueError:
-            flash("Horodatage invalide : modification ignorée.", "warning", queue='update')
+            flash("Horodatage invalide : modification ignorée.",'warning')
 
     # ---------- LOCATION ----------
     address = (request.form.get("location") or "").strip()
@@ -541,9 +540,9 @@ def update_image():
     # ---------- COMMIT ----------
     if changed:
         database.session.commit()
-        flash("Image mise à jour", "success", queue='update')
+        flash("Image mise à jour.", 'success')
     else:
-        flash("Aucune modification détectée.", "info", queue='update')
+        flash("Aucune modification détectée.", 'warning')
 
     return redirect(url_for("main.upload"))
 
@@ -660,13 +659,13 @@ def register():
         existing_email = User.query.filter_by(mail=email).first()
         if existing_email:
             error_msg = "Cette adresse mail est déjà utilisée."
-            flash(error_msg, "danger", queue="register")
+            flash(error_msg, "danger")
             return render_template("register.html", error=error_msg, name=name, email=email)
 
         existing_username = User.query.filter_by(name=name).first()
         if existing_username:
             error_msg = "Ce nom d'utilisateur est déjà pris."
-            flash(error_msg, "danger", queue='register')
+            flash(error_msg, 'danger')
             return render_template("register.html", error=error_msg, name=name, email=email)
 
         # Création de l'utilisateur
@@ -676,7 +675,7 @@ def register():
 
         # Connexion automatique après création du compte
         session["user_id"] = user.id
-        flash("Compte créé et connecté avec succès !", "success", queue="register")
+        flash("Compte créé et connecté avec succès !", "success")
         return redirect(url_for("main.dashboard"))
 
     return render_template("register.html")
@@ -691,13 +690,13 @@ def login():
         user = User.query.filter_by(mail=email).first()
         if not user:
             error_msg = "Adresse mail inconnue."
-            flash(error_msg, "danger", queue='login')
+            flash(error_msg, 'danger')
             return render_template("login.html", error=error_msg, email=email)
 
         # Priorité 2 : vérifier le mot de passe si l'email est valide
         if not check_password_hash(user.password, password):
             error_msg = "Mot de passe incorrect."
-            flash(error_msg, "danger", queue='login')
+            flash(error_msg,  'danger')
             return render_template("login.html", error=error_msg, email=email)
 
         # Succès
@@ -710,7 +709,7 @@ def login():
 @main.route("/logout")
 def logout():
     session.pop("user_id", None)   # forget who was logged-in
-    flash("Vous êtes maintenant déconnecté·e.", "info", queue="login")
+    flash("Vous êtes maintenant déconnecté·e.", "success")
     return redirect(url_for("main.dashboard"))
 
 @main.route("/admin/users")
@@ -724,11 +723,11 @@ def admin_dashboard():
 def toggle_admin(user_id):
     user = User.query.get_or_404(user_id)
     if user.id == session.get("user_id"):
-        flash("Vous ne pouvez pas modifier votre propre rôle.", "warning", queue="admin")
+        flash("Vous ne pouvez pas modifier votre propre rôle.", "warning")
     else:
         user.is_admin = not user.is_admin
         database.session.commit()
-        flash("Rôle mis à jour", "success", queue="admin")
+        flash("Rôle mis à jour.", "success")
     return redirect(url_for("main.admin_dashboard"))
 
 @main.route("/admin/users/<int:user_id>/delete", methods=["POST"])
@@ -736,11 +735,11 @@ def toggle_admin(user_id):
 def delete_user(user_id):
     user = User.query.get_or_404(user_id)
     if user.is_superadmin:
-        flash("Impossible de supprimer le super-admin.", "danger", queue="admin")
+        flash("Impossible de supprimer le super-admin.", "danger")
     else:
         database.session.delete(user)
         database.session.commit()
-        flash("Compte supprimé", "success", queue="admin")
+        flash("Compte supprimé.", "success")
     return redirect(url_for("main.admin_dashboard"))
 
 @main.route("/rules", methods=["GET"])
@@ -763,12 +762,11 @@ def rules_edit():
         try:
             cleaned = {k: schema[k](incoming[k]) for k in schema}
         except Exception as e:
-            flash(f"Champ invalide : {e}", "danger", queue="rules")
+            flash(f"Champ invalide : {e}", "warning")
             return redirect(request.url)
 
         save_rules(cleaned)
-        flash("Règles mises à jour !", "success", queue="rules")
-        return redirect(url_for("main.rules_edit"))
+        flash("Règles mises à jour !", "success")
         return redirect(url_for("main.rules_edit"))
 
     return render_template("rules_editor.html", rules=get_rules())
@@ -778,7 +776,7 @@ def rules_edit():
 @admin_required
 def rules_test():
     if 'test_image' not in request.files or request.files['test_image'].filename == '':
-        flash("Choisissez un fichier à tester", "warning", queue="rules")
+        flash("Choisissez un fichier à tester.", "warning")
         return redirect(url_for('main.rules_edit'))
 
     f = request.files['test_image']
@@ -790,5 +788,5 @@ def rules_test():
     result = classify_image_by_rules(tmp)   # ⇒ 'full' ou 'empty'
     os.remove(tmp)
 
-    flash(f"Résultat : {result}", "info", queue="rules")
+    flash(f"Résultat : {result}", "success")
     return redirect(url_for('main.rules_edit', _anchor='result'))
