@@ -19,7 +19,9 @@ class BinRules:
 
 
 def classify_image_by_rules(image_path: str) -> str:
-    rules = get_rules()
+    rules_dict = get_rules()
+    filtered = {k: rules_dict[k] for k in BinRules.__annotations__ if k in rules_dict}
+    rules = BinRules(**filtered)
 
     try:
         # Load image using OpenCV

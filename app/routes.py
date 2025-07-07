@@ -3,7 +3,7 @@ import uuid
 
 import cv2
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash, session, abort, jsonify
-from geopy.exc import GeocoderServiceError
+from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 from geopy.extra.rate_limiter import RateLimiter
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
@@ -370,8 +370,9 @@ def lat_lon_from_string(latlon_str):
 @main.route("/quick_upload", methods=["POST"])
 @login_required
 def quick_upload():
-    print(request)
+    print("quick upload")
     file = request.files.get("image")
+    print("got image")
     if not file:
         flash("Erreur : aucune image reçue.", "danger")
         return redirect(url_for("main.upload"))
@@ -379,21 +380,41 @@ def quick_upload():
     filename  = secure_filename(file.filename)
     filepath  = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
     file.save(filepath)
+    print("saved image")
 
     # Auto-label from rules
     label_auto = classify_image_by_rules(filepath)
+    print("got label")
 
     # Values provided by the client (timestamp already ISO-ish)
     timestamp_str = request.form.get("timestamp")
-    geolocator = Nominatim(user_agent="wdp/1.0", timeout=5)
     # The form passes a "lat, lon" string
-    location_str = request.form.get("location").strip()
-    location_geopy = geolocator.reverse(location_str, exactly_one=True)
-    lat, lon = lat_lon_from_string(location_str)
-    location = Location(address = location_geopy.address, latitude = lat, longitude = lon)
+    # --- 1. make the form field required, early exit if missing --------------
+    location_raw = (request.form.get("location") or "").strip()
+    if not location_raw:
+        flash("Coordonnées manquantes 📍", "danger")
+        return redirect(url_for("main.upload"))
+
+    # --- 2. parse it *before* giving anything to geopy -----------------------
+    try:
+        lat, lon = map(float, location_raw.split(","))
+    except ValueError:
+        flash("Format attendu : latitude,longitude", "danger")
+        return redirect(url_for("main.upload"))
+
+    geolocator = Nominatim(user_agent="wdp/1.0", timeout=5)
+    try:
+        # supply a *tuple* so geopy never tries to re-parse a string
+        geo = geolocator.reverse((lat, lon), exactly_one=True)
+        address = geo.address if geo else "Adresse inconnue"
+    except (GeocoderTimedOut, GeocoderServiceError) as e:
+        current_app.logger.warning(f"reverse-geocode failed: {e}")
+        address = "Adresse inconnue"
+
+    location = Location(address = address, latitude = lat, longitude = lon)
 
     add_image_to_db(filename, location, timestamp_str, label_auto, False, False, False, True)
-    flash("Image enregistrée ✅", "success")
+    flash("Image enregistrée", "success", queue='images')
     return redirect(url_for("main.upload"))
 
 
@@ -454,7 +475,7 @@ def delete_image(image_id):
     database.session.delete(img)
     database.session.commit()
 
-    flash("Image supprimée.", "success")
+    flash("Image supprimée.", "success", queue='images')
     return redirect(url_for("main.upload"))
 
 @main.route("/edit_image/<int:image_id>")
@@ -495,7 +516,7 @@ def update_image():
                 img.timestamp_manual = True
                 changed = True
         except ValueError:
-            flash("Horodatage invalide : modification ignorée.", "warning")
+            flash("Horodatage invalide : modification ignorée.", "warning", queue='update')
 
     # ---------- LOCATION ----------
     address = (request.form.get("location") or "").strip()
@@ -520,9 +541,9 @@ def update_image():
     # ---------- COMMIT ----------
     if changed:
         database.session.commit()
-        flash("Image mise à jour ✅", "success")
+        flash("Image mise à jour", "success", queue='update')
     else:
-        flash("Aucune modification détectée.", "info")
+        flash("Aucune modification détectée.", "info", queue='update')
 
     return redirect(url_for("main.upload"))
 
@@ -639,13 +660,13 @@ def register():
         existing_email = User.query.filter_by(mail=email).first()
         if existing_email:
             error_msg = "Cette adresse mail est déjà utilisée."
-            flash(error_msg, "danger")
+            flash(error_msg, "danger", queue="register")
             return render_template("register.html", error=error_msg, name=name, email=email)
 
         existing_username = User.query.filter_by(name=name).first()
         if existing_username:
             error_msg = "Ce nom d'utilisateur est déjà pris."
-            flash(error_msg, "danger")
+            flash(error_msg, "danger", queue='register')
             return render_template("register.html", error=error_msg, name=name, email=email)
 
         # Création de l'utilisateur
@@ -655,7 +676,7 @@ def register():
 
         # Connexion automatique après création du compte
         session["user_id"] = user.id
-        flash("Compte créé et connecté avec succès !", "success")
+        flash("Compte créé et connecté avec succès !", "success", queue="register")
         return redirect(url_for("main.dashboard"))
 
     return render_template("register.html")
@@ -668,16 +689,15 @@ def login():
 
         # Priorité 1 : vérifier si l'adresse mail existe
         user = User.query.filter_by(mail=email).first()
-
         if not user:
             error_msg = "Adresse mail inconnue."
-            flash(error_msg, "danger")
+            flash(error_msg, "danger", queue='login')
             return render_template("login.html", error=error_msg, email=email)
 
         # Priorité 2 : vérifier le mot de passe si l'email est valide
         if not check_password_hash(user.password, password):
             error_msg = "Mot de passe incorrect."
-            flash(error_msg, "danger")
+            flash(error_msg, "danger", queue='login')
             return render_template("login.html", error=error_msg, email=email)
 
         # Succès
@@ -690,7 +710,7 @@ def login():
 @main.route("/logout")
 def logout():
     session.pop("user_id", None)   # forget who was logged-in
-    flash("Vous êtes maintenant déconnecté·e.", "info")
+    flash("Vous êtes maintenant déconnecté·e.", "info", queue="login")
     return redirect(url_for("main.dashboard"))
 
 @main.route("/admin/users")
@@ -704,11 +724,11 @@ def admin_dashboard():
 def toggle_admin(user_id):
     user = User.query.get_or_404(user_id)
     if user.id == session.get("user_id"):
-        flash("Vous ne pouvez pas modifier votre propre rôle.", "warning")
+        flash("Vous ne pouvez pas modifier votre propre rôle.", "warning", queue="admin")
     else:
         user.is_admin = not user.is_admin
         database.session.commit()
-        flash("Rôle mis à jour ✅", "success")
+        flash("Rôle mis à jour", "success", queue="admin")
     return redirect(url_for("main.admin_dashboard"))
 
 @main.route("/admin/users/<int:user_id>/delete", methods=["POST"])
@@ -716,11 +736,11 @@ def toggle_admin(user_id):
 def delete_user(user_id):
     user = User.query.get_or_404(user_id)
     if user.is_superadmin:
-        flash("Impossible de supprimer le super-admin.", "danger")
+        flash("Impossible de supprimer le super-admin.", "danger", queue="admin")
     else:
         database.session.delete(user)
         database.session.commit()
-        flash("Compte supprimé ✅", "success")
+        flash("Compte supprimé", "success", queue="admin")
     return redirect(url_for("main.admin_dashboard"))
 
 @main.route("/rules", methods=["GET"])
@@ -743,11 +763,12 @@ def rules_edit():
         try:
             cleaned = {k: schema[k](incoming[k]) for k in schema}
         except Exception as e:
-            flash(f"Champ invalide : {e}", "danger")
+            flash(f"Champ invalide : {e}", "danger", queue="rules")
             return redirect(request.url)
 
         save_rules(cleaned)
-        flash("Règles mises à jour !", "success")
+        flash("Règles mises à jour !", "success", queue="rules")
+        return redirect(url_for("main.rules_edit"))
         return redirect(url_for("main.rules_edit"))
 
     return render_template("rules_editor.html", rules=get_rules())
@@ -757,7 +778,7 @@ def rules_edit():
 @admin_required
 def rules_test():
     if 'test_image' not in request.files or request.files['test_image'].filename == '':
-        flash("Choisissez un fichier à tester", "warning")
+        flash("Choisissez un fichier à tester", "warning", queue="rules")
         return redirect(url_for('main.rules_edit'))
 
     f = request.files['test_image']
@@ -769,5 +790,5 @@ def rules_test():
     result = classify_image_by_rules(tmp)   # ⇒ 'full' ou 'empty'
     os.remove(tmp)
 
-    flash(f"Résultat : {result}", "info")
+    flash(f"Résultat : {result}", "info", queue="rules")
     return redirect(url_for('main.rules_edit', _anchor='result'))
