@@ -2,7 +2,7 @@ import time
 import uuid
 
 import cv2
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash, session, abort, jsonify
 from geopy.exc import GeocoderServiceError
 from geopy.extra.rate_limiter import RateLimiter
 from sqlalchemy import func
@@ -10,6 +10,7 @@ from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 import os
 from app.classification.rules import classify_image_by_rules
+from app.classification.rules_store import get_rules, save_rules
 from app.db.models import Image, User, Location
 from app.extensions import database
 from datetime import datetime
@@ -19,9 +20,44 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from geopy.geocoders import Nominatim
 
+import json, pathlib, threading
+from typing import Dict, Any
+
+RULES_PATH   = pathlib.Path(__file__).with_name("rules.json")
+_rules_lock  = threading.RLock()
+_rules_cache: Dict[str, Any] | None = None
+_rules_mtime: float | None = None
+
+def _reload_rules_if_needed() -> Dict[str, Any]:
+    """Return latest rules; reload from disk if file changed or first call."""
+    global _rules_cache, _rules_mtime
+    with _rules_lock:
+        try:
+            mtime = RULES_PATH.stat().st_mtime
+        except FileNotFoundError:
+            # Create file with sensible defaults the first time
+            defaults = {
+                "edge_density"      : 0.05,
+                "texture_variance"  : 500,
+                "color_diversity"   : 800,
+                "contour_count"     : 20,
+                "brightness_low"    : 80,
+                "brightness_high"   : 180,
+                "avg_saturation"    : 100,
+                "file_size"         : 100_000,
+                "full_score_thresh" : 4
+            }
+            RULES_PATH.write_text(json.dumps(defaults, indent=2))
+            _rules_cache, _rules_mtime = defaults, RULES_PATH.stat().st_mtime
+            return defaults
+
+        if _rules_cache is None or mtime != _rules_mtime:
+            _rules_cache  = json.loads(RULES_PATH.read_text())
+            _rules_mtime  = mtime
+        return _rules_cache
+
 def str_to_bool(val: str | None) -> bool:
     return (val or "").lower() == "true"
-
 
 def extract_exif_location(image_path):
     img = PILImage.open(image_path)
@@ -558,11 +594,36 @@ def dashboard():
                 "label": img.label or "non défini"
             })
 
+    from collections import defaultdict
+    tile = lambda v: round(v, 2)  # 0.01° ≈ 1 km
+
+    grid = defaultdict(lambda: {"full": 0, "total": 0, "lat": 0, "lon": 0})
+
+    for loc in locations_coords:  # ← already filtered list
+        lt, ln = tile(loc["lat"]), tile(loc["lon"])
+        key = (lt, ln)
+        bucket = grid[key]
+        bucket["total"] += 1
+        if loc["label"] == "full":
+            bucket["full"] += 1
+        bucket["lat"], bucket["lon"] = lt, ln  # keep centre
+
+    # convert to list the template can “tojson”
+    danger_zones = [
+        {
+            "lat": b["lat"],
+            "lon": b["lon"],
+            "ratio": b["full"] / b["total"]  # 0 → green, 1 → dark-red
+        }
+        for b in grid.values() if b["total"] >= 3  # ignore tiny samples
+    ]
+
     return render_template(
         "dashboard.html",
         stats=stats,
         locations=all_locations,
-        locations_coords=locations_coords
+        locations_coords=locations_coords,
+        danger_zones=danger_zones,
     )
 @main.route("/register", methods=["GET", "POST"])
 def register():
@@ -650,3 +711,52 @@ def delete_user(user_id):
         database.session.commit()
         flash("Compte supprimé ✅", "success")
     return redirect(url_for("main.admin_dashboard"))
+
+@main.route("/rules", methods=["GET"])
+@admin_required
+def rules_get():
+    return jsonify(get_rules()), 200
+
+@main.route("/rules/edit", methods=["GET", "POST"])
+@admin_required
+def rules_edit():
+    if request.method == "POST":
+        incoming = request.form.to_dict()
+        schema = {           # même mapping qu'avant
+            "edge_density": float, "texture_variance": float,
+            "color_diversity": int, "contour_count": int,
+            "brightness_low": int, "brightness_high": int,
+            "avg_saturation": float, "file_size": int,
+            "full_score_thresh": int,
+        }
+        try:
+            cleaned = {k: schema[k](incoming[k]) for k in schema}
+        except Exception as e:
+            flash(f"Champ invalide : {e}", "danger")
+            return redirect(request.url)
+
+        save_rules(cleaned)
+        flash("Règles mises à jour !", "success")
+        return redirect(url_for("main.rules_edit"))
+
+    return render_template("rules_editor.html", rules=get_rules())
+
+# --- POST séparé pour tester une image ------------------------------------
+@main.route("/rules/test", methods=["POST"])
+@admin_required
+def rules_test():
+    if 'test_image' not in request.files or request.files['test_image'].filename == '':
+        flash("Choisissez un fichier à tester", "warning")
+        return redirect(url_for('main.rules_edit'))
+
+    f = request.files['test_image']
+    fname = secure_filename(f.filename)
+    tmp   = os.path.join(current_app.config['UPLOAD_FOLDER'], 'tmp', f"{uuid.uuid4()}_{fname}")
+    os.makedirs(os.path.dirname(tmp), exist_ok=True)
+    f.save(tmp)
+
+    result = classify_image_by_rules(tmp)   # ⇒ 'full' ou 'empty'
+    os.remove(tmp)
+
+    flash(f"Résultat : {result}", "info")
+    return redirect(url_for('main.rules_edit', _anchor='result'))

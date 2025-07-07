@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Éditer & Tester les règles{% endblock %}
+{% block content %}
+
+<h2 class="mb-4">Seuils d’analyse d’images</h2>
+<!-- Flash messages (Bootstrap alerts) -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<!-- ------------- EDIT RULES FORM ------------------------------------------- -->
+<form method="POST" class="row row-cols-2 row-cols-md-3 g-3" action="{{ url_for('main.rules_edit') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% for key, value in rules.items() %}
+    <div class="col">
+      <label class="form-label fw-bold" for="{{ key }}">{{ key }}</label>
+      <input  id="{{ key }}"
+              class="form-control form-control-sm"
+              type="number" step="any"
+              name="{{ key }}" value="{{ value }}">
+    </div>
+  {% endfor %}
+
+  <div class="col-12 mt-2">
+    <button class="btn btn-primary">Enregistrer</button>
+  </div>
+</form>
+
+<hr class="my-4">
+<h3 class="mb-3">Tester une image avec les règles actuelles</h3>
+
+<!-- ------------- TEST IMAGE FORM ------------------------------------------- -->
+<form method="POST" enctype="multipart/form-data" action="{{ url_for('main.rules_test') }}" class="mb-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="input-group">
+    <input class="form-control" type="file" name="test_image" accept="image/*" required>
+    <button class="btn btn-secondary" type="submit">Tester</button>
+  </div>
+</form>
+
+{% if test_result is defined %}
+  <div class="alert alert-info">
+    Résultat de la classification : <strong>{{ test_result }}</strong>
+  </div>
+{% endif %}
+
+{% endblock %}

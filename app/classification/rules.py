@@ -2,18 +2,25 @@ import cv2
 import numpy as np
 from PIL import Image
 import os
+from dataclasses import dataclass, asdict
+from app.classification.rules_store import get_rules
+
+@dataclass
+class BinRules:
+    edge_density      : float = 0.05
+    texture_variance  : float = 500
+    color_diversity   : int   = 800
+    contour_count     : int   = 20
+    brightness_low    : int   = 80
+    brightness_high   : int   = 180
+    saturation        : int   = 100
+    file_size         : int   = 100_000
+    full_score_thresh : int   = 4        # decision boundary
 
 
 def classify_image_by_rules(image_path: str) -> str:
-    """
-    Classify trash bin as full or empty using OpenCV and PIL image processing.
+    rules = get_rules()
 
-    Args:
-        image_path (str): Path to the image file
-
-    Returns:
-        str: "full" or "empty"
-    """
     try:
         # Load image using OpenCV
         img = cv2.imread(image_path)
@@ -67,35 +74,35 @@ def classify_image_by_rules(image_path: str) -> str:
         full_score = 0
 
         # High edge density suggests clutter
-        if features['edge_density'] > 0.05:
+        if features['edge_density'] > rules.edge_density:
             full_score += 2
 
         # High texture variance suggests complex surfaces
-        if features['texture_variance'] > 500:
+        if features['texture_variance'] > rules.texture_variance:
             full_score += 2
 
         # High color diversity suggests multiple objects
-        if features['color_diversity'] > 800:
+        if features['color_diversity'] > rules.color_diversity:
             full_score += 1
 
         # Many contours suggest multiple objects
-        if features['contour_count'] > 20:
+        if features['contour_count'] > rules.contour_count:
             full_score += 1
 
         # Medium brightness might indicate partially filled bins
-        if 80 < features['avg_brightness'] < 180:
+        if rules.brightness_low < features['avg_brightness'] < rules.brightness_high:
             full_score += 1
 
         # High saturation might indicate colorful trash
-        if features['avg_saturation'] > 100:
+        if features['avg_saturation'] > rules.saturation:
             full_score += 1
 
         # Large file size might indicate detailed/complex images
-        if features['file_size'] > 100000:
+        if features['file_size'] > rules.file_size:
             full_score += 1
 
         # Classification decision
-        if full_score >= 4:
+        if full_score >= rules.full_score_thresh:
             return "full"
         else:
             return "empty"

@@ -30,6 +30,7 @@
                         <li><a class="dropdown-item" href="{{ url_for('main.upload') }}"><i class="bi bi-collection me-2"></i>Mes images</a></li>
                         {% if current_user.is_admin %}
                             <li><a class="dropdown-item" href="{{ url_for('main.admin_dashboard') }}"><i class="bi bi-lock me-2"></i>Administration</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('main.rules_edit') }}"><i class="bi bi-gear me-2"></i>Édition des règles</a></li>
                         {% endif %}
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item text-danger" href="{{ url_for('main.logout') }}"><i class="bi bi-box-arrow-right me-2"></i>Déconnexion</a></li>

@@ -2,8 +2,8 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 
+<!-- ========== FILTER FORM ===================================================== -->
 <h2>Filtrage</h2>
-
 <form method="GET" class="row g-3 mb-4">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="col-md-4">
@@ -19,47 +19,70 @@
   </div>
 </form>
 
+<!-- ========== MAP ============================================================= -->
 <h2>Carte des poubelles</h2>
-<div id="map" style="height: 500px;"></div>
+<div id="map" style="height:500px"></div>
+
+<style>
+  #map { position: relative; }
+  .cluster-bubble {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    line-height: 36px;
+    text-align: center;
+    font-weight: 600;
+    color: #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.35);
+    font-size: .9rem;
+  }
+  .leaflet-control.custom-legend,
+  .leaflet-control-layers { z-index: 1000 !important; }
+  .custom-legend {
+    background: rgba(255,255,255,0.95);
+    padding: 8px 10px;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.15);
+    font-size: .85rem;
+  }
+</style>
 
 <hr class="my-4">
-
 <canvas id="pieChart" width="300" height="300"></canvas>
 
-<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        crossorigin=""></script>
-
+<!-- ========== EXTERNAL LIBS ==================================================== -->
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<link   rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link   rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  /* --------------------------------------------------------------------------- */
+  /* 1. Pie chart                                                               */
+  /* --------------------------------------------------------------------------- */
+  new Chart(document.getElementById('pieChart'), {
+    type: 'pie',
+    data: {
+      labels: ['Pleine', 'Vide'],
+      datasets: [{
+        data: [{{ stats.full|default(0) }}, {{ stats.empty|default(0) }}],
+        backgroundColor: ['#dc3545','#198754']
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { position: 'bottom' },
+        title : { display: true, text: 'Répartition des annotations' }
+      },
+      responsive: true
+    }
+  });
 
-  /* ---------- Chart.js ---------- */
-  const data = {
-    labels: ['Pleine', 'Vide'],
-    datasets: [{
-      data: [{{ stats.full|default(0) }}, {{ stats.empty|default(0) }}],
-      backgroundColor: ['#dc3545', '#198754']
-    }]
-  };
-
-  new Chart(
-    document.getElementById('pieChart'),   // pass the element, not '#id'
-    {
-      type: 'pie',
-      data: data,
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position: 'bottom' },
-          title:  { display: true, text: 'Répartition des annotations' }
-        }
-      }                 // ← 1st closing brace: options
-    }                   // ← 2nd closing brace: outer config
-  );                    // ← finishes new Chart(...)
-
-  /* ---------- Leaflet ---------- */
+  /* --------------------------------------------------------------------------- */
+  /* 2. Leaflet map                                                              */
+  /* --------------------------------------------------------------------------- */
   const map = L.map('map').setView([46.6, 2.4], 6);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
@@ -67,39 +90,77 @@ document.addEventListener('DOMContentLoaded', () => {
   }).addTo(map);
 
   const locations = {{ locations_coords | tojson | default('[]', true) }};
-  const latLngs   = [];
 
-  locations.forEach(loc => {
-    if (loc.lat == null || loc.lon == null) return;
-
-    const pinColor = loc.label === 'full'  ? 'red'  :
-                     loc.label === 'empty' ? 'green': 'blue';
-
-    L.circleMarker([loc.lat, loc.lon], {
-      radius: 8,
-      fillColor: pinColor,
-      color: '#000',
-      weight: 1,
-      opacity: 1,
-      fillOpacity: 0.8
-    })
-    .addTo(map)
-    .bindPopup(
-      `Statut : <strong>${loc.label}</strong><br>` +
-      `Lat : ${loc.lat.toFixed(5)}<br>` +
-      `Lon : ${loc.lon.toFixed(5)}`
-    );
-
-    latLngs.push([loc.lat, loc.lon]);
+  /* icon factory */
+  const pinIcon = color => L.divIcon({
+    html:`<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8" fill="${color}" stroke="#000" stroke-width="1"/></svg>`,
+    className:'', iconSize:[18,18], iconAnchor:[9,9]
   });
 
-  if (latLngs.length) {
-    map.fitBounds(latLngs, { padding: [20, 20] });
-  } else {
-    map.setView([46.6, 2.4], 6);
-  }
+  /* build markers ONCE */
+  const markers = [];
+  locations.forEach(l => {
+    if(!l.lat || !l.lon) return;
+    const colour = l.label==='full' ? '#dc3545' : l.label==='empty' ? '#198754' : '#0d6efd';
+    const m = L.marker([l.lat, l.lon], {
+      icon: pinIcon(colour),
+      binState: l.label,
+      title: l.label
+    }).bindPopup(`Statut : <strong>${l.label}</strong><br>Lat : ${l.lat.toFixed(5)}<br>Lon : ${l.lon.toFixed(5)}`);
+    markers.push(m);
+  });
 
-});  /* ← closes DOMContentLoaded callback */
+  /* 2a. Cluster layer with chunked loading ------------------------------------- */
+  const clusters = L.markerClusterGroup({
+    chunkedLoading: true,
+    chunkDelay   : 25,
+    iconCreateFunction: cl => {
+      const kids  = cl.getAllChildMarkers();
+      const fulls = kids.filter(m => m.options.binState==='full').length;
+      const ratio = fulls / kids.length;
+      const col   = ratio < .25 ? '#198754' : ratio < .60 ? '#ffc107' : '#dc3545';
+      return L.divIcon({
+        html:`<div class='cluster-bubble' style='background:${col}'>${kids.length}</div>`,
+        className:'', iconSize:[40,40]
+      });
+    }
+  });
+  clusters.addLayers(markers);
+  map.addLayer(clusters);
+
+  /* 2b. Pins layer (lazy) ------------------------------------------------------- */
+  const pins = L.layerGroup();
+
+  map.on('overlayadd', e => {
+    if(e.layer === pins && pins.getLayers().length === 0){
+      markers.forEach(m => pins.addLayer(m));
+    }
+  });
+  map.on('overlayremove', e => {
+    if(e.layer === pins){ pins.clearLayers(); }
+  });
+
+  /* 2c. Legend ----------------------------------------------------------------- */
+  const legend = L.control({ position:'topright' });
+  legend.onAdd = () => {
+    const div = L.DomUtil.create('div','leaflet-control custom-legend');
+    div.innerHTML =
+      `<div style='width:50px;height:8px;background:#198754'></div> Peu de poubelles pleines<br>`+
+      `<div style='width:50px;height:8px;background:#ffc107'></div> Zone à surveiller<br>`+
+      `<div style='width:50px;height:8px;background:#dc3545'></div> Zone critique`;
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+  };
+  legend.addTo(map);
+
+  /* 2d. Layer selector --------------------------------------------------------- */
+  L.control.layers(null, { Clusters: clusters, Pins: pins }, {
+    collapsed:false, position:'topright'
+  }).addTo(map);
+
+  /* fit map */
+  if(markers.length) map.fitBounds(clusters.getBounds(), {padding:[100,100]});
+});
 </script>
 
 {% endblock %}
