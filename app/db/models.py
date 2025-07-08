@@ -11,6 +11,18 @@ class Image(database.Model):
     timestamp_manual = database.Column(database.Boolean, default=False)
     location_manual = database.Column(database.Boolean, default=False)
 
+    dark_ratio = database.Column(database.Float)
+    edge_density = database.Column(database.Float)
+    contour_count = database.Column(database.Float)
+    color_diversity = database.Column(database.Float)
+    avg_saturation = database.Column(database.Float)
+    bright_ratio = database.Column(database.Float)
+    std_intensity = database.Column(database.Float)
+    entropy = database.Column(database.Float)
+    color_clusters = database.Column(database.Float)
+    aspect_dev = database.Column(database.Float)
+    fill_ratio = database.Column(database.Float)
+
     # FK vers Location (une seule location par image)
     location_id = database.Column(database.Integer, database.ForeignKey("location.id", ondelete="CASCADE"), nullable=False)
     location = database.relationship("Location", back_populates="images")
@@ -40,5 +52,5 @@ class Location(database.Model):
     # 1 location ➜ plusieurs images
     images = database.relationship("Image", back_populates="location", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
 
-    
+
 

@@ -102,7 +102,7 @@ def extract_features(image_path: str):
       "fill_ratio":      fill_ratio,
     }
 
-def classify_image_by_rules(image_path: str) -> str:
+def classify_image_by_rules(image_path: str) -> (str, dict):
     # load thresholds
     rules_dict = get_rules()
     # filter to only fields we need
@@ -126,4 +126,4 @@ def classify_image_by_rules(image_path: str) -> str:
     score += 1 if feat["aspect_dev"]      > rules.aspect_dev       else 0
     score += 1 if feat["fill_ratio"]      < rules.fill_ratio       else 0
 
-    return "full" if score >= rules.full_score_thresh else "empty"
+    return ("full" if score >= rules.full_score_thresh else "empty"), feat

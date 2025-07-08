@@ -16,6 +16,7 @@
   <input type="hidden" name="label_manual"     id="label_manual">
 <input type="hidden" name="timestamp_manual" id="timestamp_manual">
 <input type="hidden" name="location_manual"  id="location_manual">
+  <input type="hidden" name="features" id="features" value="{{ features | tojson | safe }}">
 
   {# ---------------------- Label ---------------------- #}
   <div class="mb-3">
@@ -102,6 +103,7 @@ const autoLabel      = "{{ auto_label }}";
 const autoTimestamp  = "{{ auto_timestamp or '' }}";
 const autoLocation   = "{{ auto_location or '' }}";
 const baseBadgeText  = "{{ 'Original' if edit_mode else 'Auto' }}";
+const features = "{{ features }}";
 
 // Éléments DOM
 const labelSelect        = document.getElementById('label');

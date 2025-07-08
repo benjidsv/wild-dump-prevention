@@ -97,7 +97,7 @@ def extract_exif_timestamp(image_path):
 
         return None
 
-def add_image_to_db(filename, address, timestamp_str, label, label_manual, timestamp_manual, address_manual, address_is_location = False):
+def add_image_to_db(filename, address, timestamp_str, label, label_manual, timestamp_manual, address_manual, features, address_is_location = False):
     timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M")
 
     if address_is_location:
@@ -128,6 +128,9 @@ def add_image_to_db(filename, address, timestamp_str, label, label_manual, times
     database.session.add(location)
     database.session.flush()
 
+    for key in features:
+        features[key] = float(features[key])
+
     img = Image(
         path=os.path.join(current_app.config["UPLOAD_FOLDER"], filename),
         label=label,
@@ -137,6 +140,18 @@ def add_image_to_db(filename, address, timestamp_str, label, label_manual, times
         label_manual=label_manual,
         timestamp_manual=timestamp_manual,
         location_manual=address_manual,
+
+        dark_ratio=features["dark_ratio"],
+        edge_density=features["edge_density"],
+        contour_count=features["contour_count"],
+        color_diversity=features["color_diversity"],
+        avg_saturation=features["avg_saturation"],
+        bright_ratio=features["bright_ratio"],
+        std_intensity=features["std_intensity"],
+        entropy=features["entropy"],
+        color_clusters=features["color_clusters"],
+        aspect_dev=features["aspect_dev"],
+        fill_ratio=features["fill_ratio"],
     )
     database.session.add(img)
     database.session.commit()
@@ -241,6 +256,7 @@ def upload():
         labels = []
         timestamps = []
         locations = []
+        feats = []
         for file in files:
             filename = secure_filename(file.filename)
             filenames.append(filename)
@@ -248,8 +264,9 @@ def upload():
             file.save(filepath)
 
             # Feature extraction
-            label_auto = classify_image_by_rules(filepath)
+            label_auto, features = classify_image_by_rules(filepath)
             labels.append(label_auto)
+            feats.append(features)
             exif_timestamp = extract_exif_timestamp(filepath)
             timestamp = exif_timestamp or datetime.utcnow()
             timestamps.append(timestamp.strftime("%Y-%m-%dT%H:%M"))
@@ -261,7 +278,8 @@ def upload():
         filenames=filenames,
         auto_labels=labels,
         auto_timestamps=timestamps,
-        auto_locations=locations
+        auto_locations=locations,
+                               feats=feats
     )
 
     if 'video' in request.files:
@@ -287,7 +305,7 @@ def upload():
     file.save(filepath)
 
     # Feature extraction
-    label_auto = classify_image_by_rules(filepath)
+    label_auto, features = classify_image_by_rules(filepath)
     exif_timestamp = extract_exif_timestamp(filepath)
     timestamp = exif_timestamp or datetime.utcnow()
     location = extract_exif_location(filepath) or ""
@@ -297,7 +315,8 @@ def upload():
         filename=filename,
         auto_label=label_auto,
         default_timestamp=timestamp.strftime("%Y-%m-%dT%H:%M"),
-        auto_location=location
+        auto_location=location,
+        features=features,
     )
 
 @main.route("/confirm", methods=["POST"])
@@ -311,8 +330,9 @@ def confirm_upload():
     label_manual = str_to_bool(request.form.get("label_manual"))
     timestamp_manual = str_to_bool(request.form.get("timestamp_manual"))
     address_manual = str_to_bool(request.form.get("location_manual").strip())
+    features = request.form.get("features")
 
-    add_image_to_db(filename, address, timestamp_str, label, label_manual, timestamp_manual, address_manual)
+    add_image_to_db(filename, address, timestamp_str, label, label_manual, timestamp_manual, address_manual, features)
 
     flash("Image enregistrée !", "success")
 
@@ -327,43 +347,16 @@ def confirm_upload_multiple():
         label          = request.form.get(f"label_{idx}")
         ts_str         = request.form.get(f"timestamp_{idx}") or ""
         address        = request.form.get(f"location_{idx}")  or ""
+        features = request.form.get(f"features_{idx}")
 
         # --- convert provenance flags to real booleans -------------
         label_manual   = str_to_bool(request.form.get(f"label_manual_{idx}"))
         ts_manual      = str_to_bool(request.form.get(f"timestamp_manual_{idx}"))
         loc_manual     = str_to_bool(request.form.get(f"location_manual_{idx}"))
 
-        # ------------ resolve / build Location row -----------------
-        location = None
-        if address:
-            location = Location.query.filter_by(address=address).first()
-            if not location:
-                try:
-                    geo = Nominatim(user_agent="wdp/1.0", timeout=5).geocode(address, exactly_one=True)
-                except GeocoderServiceError:
-                    geo = None
-                location = Location(
-                    address   = address,
-                    latitude  = geo.latitude  if geo else None,
-                    longitude = geo.longitude if geo else None,
-                )
-                database.session.add(location)
-                database.session.flush()
+        add_image_to_db(filename, address, ts_str, label, label_manual, ts_manual, loc_manual, features)
 
-        # ------------- add Image -----------------------------------
-        img = Image(
-            path              = os.path.join(current_app.config['UPLOAD_FOLDER'], filename),
-            label             = label,
-            timestamp         = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M"),
-            user_id           = session['user_id'],
-            label_manual      = label_manual,
-            timestamp_manual  = ts_manual,
-            location_manual   = loc_manual,
-            location          = location,
-        )
-        database.session.add(img)
 
-    database.session.commit()
     flash("Images enregistrées !", "success")
     return redirect(url_for("main.upload"))
 
@@ -395,7 +388,7 @@ def quick_upload():
     print("saved image")
 
     # Auto-label from rules
-    label_auto = classify_image_by_rules(filepath)
+    label_auto, features = classify_image_by_rules(filepath)
     print("got label")
 
     # Values provided by the client (timestamp already ISO-ish)
@@ -425,7 +418,7 @@ def quick_upload():
 
     location = Location(address = address, latitude = lat, longitude = lon)
 
-    add_image_to_db(filename, location, timestamp_str, label_auto, False, False, False, True)
+    add_image_to_db(filename, location, timestamp_str, label_auto, False, False, False, features, True)
     flash("Image enregistrée !", 'success')
     return redirect(url_for("main.upload"))
 
