@@ -48,7 +48,7 @@ def create_app(config_class=DevConfig):
 
         user = User(name=name,
                     mail=email,
-                    password=generate_password_hash(pwd),
+                    password=generate_password_hash(pwd, method='pbkdf2:sha256', salt_length=8),
                     is_admin=True,
                     is_superadmin=True)
         database.session.add(user)

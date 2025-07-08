@@ -18,14 +18,16 @@ from PIL.ExifTags import TAGS, GPSTAGS
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from geopy.geocoders import Nominatim
+from ultralytics import YOLO
+import base64
 
 import json, pathlib, threading
 from typing import Dict, Any
 
 RULES_PATH   = pathlib.Path(__file__).with_name("rules.json")
 _rules_lock  = threading.RLock()
-_rules_cache: Dict[str, Any] | None = None
-_rules_mtime: float | None = None
+_rules_cache: Dict[str, Any] = None
+_rules_mtime: float = None
 
 def _reload_rules_if_needed() -> Dict[str, Any]:
     """Return latest rules; reload from disk if file changed or first call."""
@@ -55,7 +57,7 @@ def _reload_rules_if_needed() -> Dict[str, Any]:
             _rules_mtime  = mtime
         return _rules_cache
 
-def str_to_bool(val: str | None) -> bool:
+def str_to_bool(val: str) -> bool:
     return (val or "").lower() == "true"
 
 def extract_exif_location(image_path):
@@ -659,7 +661,7 @@ def register():
         password = request.form.get("password")
 
         # Hash du mot de passe
-        hashed_password = generate_password_hash(password)
+        hashed_password = generate_password_hash(password, method='pbkdf2:sha256', salt_length=8)
 
         # Vérifie d'abord l'adresse mail, puis le nom d'utilisateur pour fournir un message précis
         existing_email = User.query.filter_by(mail=email).first()
@@ -804,3 +806,47 @@ def rules_test():
 
     flash(f"Résultat : {result}", "success")
     return redirect(url_for('main.rules_edit', _anchor='result'))
+
+@main.route("/classifier", methods=["GET", "POST"])
+@login_required
+def classifier():
+    if request.method == "POST":
+        if 'image' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+        file = request.files['image']
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+        if file:
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+
+            # Initialize the YOLO model
+            # path : app/classification/models/best.pt
+            model_path = os.path.join(current_app.root_path, 'classification', 'models', 'best.pt')
+            model = YOLO(model_path)
+
+            # Make a prediction
+            results = model.predict(filepath, conf=0.25, verbose=False)
+            result = results[0]
+            pred_class = result.probs.top1
+            confidence = result.probs.top1conf.item()
+            class_name = 'empty' if pred_class == 0 else 'full'
+
+            # Prepare result for the template
+            with open(filepath, "rb") as img_file:
+                img_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+
+            classification_result = {
+                'prediction': class_name,
+                'confidence': confidence,
+                'class_probabilities': {name: float(prob) for name, prob in zip(model.names, result.probs.data.cpu().numpy())},
+                'inference_time_ms': sum(result.speed.values()),
+                'image_data': img_base64
+            }
+
+            return render_template("classifier.html", result=classification_result)
+
+    return render_template("classifier.html", result=None)
