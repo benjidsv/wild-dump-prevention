@@ -765,13 +765,21 @@ def rules_get():
 def rules_edit():
     if request.method == "POST":
         incoming = request.form.to_dict()
-        schema = {           # même mapping qu'avant
-            "edge_density": float, "texture_variance": float,
-            "color_diversity": int, "contour_count": int,
-            "brightness_low": int, "brightness_high": int,
-            "avg_saturation": float, "file_size": int,
-            "full_score_thresh": int,
+        schema = {
+          "DARK_RATIO_TH": float,
+          "EDGE_DENSITY_TH": float,
+          "CONTOUR_COUNT_TH": int,
+          "COLOR_DIVERSITY_TH": int,
+          "SAT_MEAN_TH": float,
+          "BRIGHT_RATIO_TH": float,
+          "STD_INTENSITY_TH": float,
+          "ENTROPY_TH": float,
+          "COLOR_CLUSTERS_TH": int,
+          "ASPECT_DEV_TH": float,
+          "FILL_RATIO_TH": float,
+          "FULL_SCORE_THRESH": int
         }
+
         try:
             cleaned = {k: schema[k](incoming[k]) for k in schema}
         except Exception as e:
