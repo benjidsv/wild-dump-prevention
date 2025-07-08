@@ -197,6 +197,19 @@ def inject_current_user():
     uid = session.get("user_id")
     return {"current_user": User.query.get(uid) if uid else None}
 
+@main.app_context_processor
+def inject_image_count():
+    id = session.get("user_id")
+    if id:
+        image_count = (
+            database.session.query(func.count(Image.id))
+            .filter(Image.user_id == id)
+            .scalar()
+        )
+    else:
+        image_count = 0
+    return dict(image_count=image_count)
+
 @main.route("/")
 def index():
     return redirect(url_for("main.dashboard"))
