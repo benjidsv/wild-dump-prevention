@@ -12,3 +12,5 @@ numpy
 ultralytics
 psycopg2
 joblib
+Flask-SocketIO
+eventlet

@@ -51,7 +51,8 @@
         <input type="hidden" name="label_manual" id="label_manual">
         <input type="hidden" name="timestamp_manual" id="timestamp_manual">
         <input type="hidden" name="location_manual" id="location_manual">
-        <input type="hidden" name="features" id="features" value="{{ features | tojson | safe }}">
+        <input type="hidden" name="features" id="features" value="">
+        <script id="features-data" type="application/json">{{ features | tojson }}</script>
 
         <!-- Label Field -->
         <div class="confirm-upload-form-group">
@@ -129,7 +130,7 @@ const autoLabel      = "{{ auto_label }}";
 const autoTimestamp  = "{{ auto_timestamp or '' }}";
 const autoLocation   = "{{ auto_location or '' }}";
 const baseBadgeText  = "{{ 'Original' if edit_mode else 'Auto' }}";
-const features = "{{ features }}";
+const features = {{ features | tojson }};
 
 // Éléments DOM
 const labelSelect        = document.getElementById('label');
@@ -191,6 +192,12 @@ function resetTimestamp(){ timestampInput.value = autoTimestamp; updateUI(); }
 function resetLocation(){ locationInput.value = autoLocation;   updateUI(); }
 
 window.addEventListener('DOMContentLoaded', ()=>{
+  // Set the features data from the script tag to the hidden input
+  const featuresData = document.getElementById('features-data');
+  if (featuresData) {
+    document.getElementById('features').value = featuresData.textContent;
+  }
+  
   labelSelect.value   = autoLabel;
   timestampInput.value= autoTimestamp;
   locationInput.value = autoLocation;

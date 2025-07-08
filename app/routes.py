@@ -1,17 +1,20 @@
 import time
 import uuid
-
+import os
+import json
+import pathlib
+import threading
+import base64
 import cv2
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash, session, abort, jsonify
 from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
-import os
 from app.classification.rules import classify_image_by_rules
 from app.classification.rules_store import get_rules, save_rules
 from app.db.models import Image, User, Location
-from app.extensions import database
+from app.extensions import database, csrf, socketio
 from datetime import datetime
 from PIL import Image as PILImage
 from PIL.ExifTags import TAGS, GPSTAGS
@@ -19,9 +22,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from geopy.geocoders import Nominatim
 from ultralytics import YOLO
-import base64
-
-import json, pathlib, threading
 from typing import Dict, Any
 
 RULES_PATH   = pathlib.Path(__file__).with_name("rules.json")
@@ -130,8 +130,27 @@ def add_image_to_db(filename, address, timestamp_str, label, label_manual, times
     database.session.add(location)
     database.session.flush()
 
-    for key in features:
-        features[key] = float(features[key])
+    # Handle features - can be either a JSON string or a dictionary
+    if isinstance(features, str):
+        features_dict = json.loads(features)
+    else:
+        features_dict = features
+        
+    # Convert all values to float and ensure required keys exist
+    required_keys = [
+        "dark_ratio", "edge_density", "contour_count", "color_diversity",
+        "avg_saturation", "bright_ratio", "std_intensity", "entropy",
+        "color_clusters", "aspect_dev", "fill_ratio"
+    ]
+    
+    for key in required_keys:
+        if key in features_dict:
+            features_dict[key] = float(features_dict[key])
+        else:
+            features_dict[key] = 0.0  # Default value for missing keys
+
+    # Use features_dict for the Image creation
+    features = features_dict
 
     img = Image(
         path=os.path.join(current_app.config["UPLOAD_FOLDER"], filename),
@@ -157,6 +176,40 @@ def add_image_to_db(filename, address, timestamp_str, label, label_manual, times
     )
     database.session.add(img)
     database.session.commit()
+
+    # Get updated stats and location data for real-time updates
+    from sqlalchemy import func
+    from app.db.models import Location
+    
+    # Get updated stats
+    label_counts = (
+        database.session.query(Image.label, func.count(Image.id))
+        .group_by(Image.label)
+        .all()
+    )
+    stats = {"full": 0, "empty": 0}
+    for label_item, count in label_counts:
+        if label_item == "full":
+            stats["full"] = count
+        elif label_item == "empty":
+            stats["empty"] = count
+    
+    # Get new location data if image has location
+    location_data = None
+    if img.location and img.location.latitude and img.location.longitude:
+        location_data = {
+            "lat": float(img.location.latitude),
+            "lon": float(img.location.longitude),
+            "label": img.label,
+            "address": img.location.address
+        }
+    
+    socketio.emit('update', {
+        'filename': filename, 
+        'label': label,
+        'stats': stats,
+        'location': location_data
+    })
 
 # --------- Décorateur pour accès admin ---------
 def admin_required(f):
@@ -269,6 +322,7 @@ def upload():
             label_auto, features = classify_image_by_rules(filepath)
             labels.append(label_auto)
             feats.append(features)
+            
             exif_timestamp = extract_exif_timestamp(filepath)
             timestamp = exif_timestamp or datetime.utcnow()
             timestamps.append(timestamp.strftime("%Y-%m-%dT%H:%M"))
@@ -277,12 +331,12 @@ def upload():
 
         # We render the confirm step for multiple images
         return render_template("confirm_upload_multiple.html",
-        filenames=filenames,
-        auto_labels=labels,
-        auto_timestamps=timestamps,
-        auto_locations=locations,
-                               feats=feats
-    )
+            filenames=filenames,
+            auto_labels=labels,
+            auto_timestamps=timestamps,
+            auto_locations=locations,
+            feats=feats
+        )
 
     if 'video' in request.files:
         video_file = request.files["video"]
@@ -308,15 +362,31 @@ def upload():
 
     # Feature extraction
     label_auto, features = classify_image_by_rules(filepath)
+    print(f"DEBUG UPLOAD: classify_image_by_rules returned:")
+    print(f"  label_auto = {label_auto} (type: {type(label_auto)})")
+    print(f"  features = {features} (type: {type(features)})")
+    print(f"  features keys: {list(features.keys()) if isinstance(features, dict) else 'NOT A DICT'}")
+    
+    # Test JSON serialization
+    try:
+        import json
+        json_str = json.dumps(features)
+        print(f"  JSON serialization test: SUCCESS")
+        print(f"  JSON string length: {len(json_str)}")
+        print(f"  JSON string preview: {json_str[:100]}...")
+    except Exception as e:
+        print(f"  JSON serialization test: FAILED - {e}")
+    
     exif_timestamp = extract_exif_timestamp(filepath)
     timestamp = exif_timestamp or datetime.utcnow()
     location = extract_exif_location(filepath) or ""
 
     # Render confirm step for one image
+    print(f"DEBUG UPLOAD: About to render template with features = {features}")
     return render_template("confirm_upload.html",
         filename=filename,
         auto_label=label_auto,
-        default_timestamp=timestamp.strftime("%Y-%m-%dT%H:%M"),
+        auto_timestamp=timestamp.strftime("%Y-%m-%dT%H:%M"),
         auto_location=location,
         features=features,
     )
@@ -328,11 +398,37 @@ def confirm_upload():
     filename = request.form.get("filename")
     label = request.form.get("label")
     timestamp_str = request.form.get("timestamp")
-    address = request.form.get("location").strip()
+    address = request.form.get("location", "").strip()
     label_manual = str_to_bool(request.form.get("label_manual"))
     timestamp_manual = str_to_bool(request.form.get("timestamp_manual"))
-    address_manual = str_to_bool(request.form.get("location_manual").strip())
-    features = request.form.get("features")
+    address_manual = str_to_bool(request.form.get("location_manual", "").strip())
+    
+    # Handle features with proper error checking
+    features_str = request.form.get("features")
+    print(f"DEBUG CONFIRM: Received from form:")
+    print(f"  features_str = {repr(features_str)}")
+    print(f"  features_str type = {type(features_str)}")
+    print(f"  features_str length = {len(features_str) if features_str else 0}")
+    
+    if not features_str:
+        print("DEBUG CONFIRM: features_str is empty/None")
+        flash("Erreur: données de caractéristiques manquantes.", "danger")
+        return redirect(url_for("main.upload"))
+    
+    print(f"DEBUG CONFIRM: Raw features string: {features_str[:200]}...")
+    
+    try:
+        features = json.loads(features_str)
+        print(f"DEBUG CONFIRM: Successfully parsed features:")
+        print(f"  features = {features}")
+        print(f"  features type = {type(features)}")
+        print(f"  features keys = {list(features.keys()) if isinstance(features, dict) else 'NOT A DICT'}")
+    except json.JSONDecodeError as e:
+        print(f"DEBUG CONFIRM: JSON decode error: {e}")
+        print(f"DEBUG CONFIRM: Error at position: {e.pos if hasattr(e, 'pos') else 'unknown'}")
+        print(f"DEBUG CONFIRM: Raw string causing error: {repr(features_str)}")
+        flash("Erreur: format des caractéristiques invalide.", "danger")
+        return redirect(url_for("main.upload"))
 
     add_image_to_db(filename, address, timestamp_str, label, label_manual, timestamp_manual, address_manual, features)
 
@@ -349,7 +445,18 @@ def confirm_upload_multiple():
         label          = request.form.get(f"label_{idx}")
         ts_str         = request.form.get(f"timestamp_{idx}") or ""
         address        = request.form.get(f"location_{idx}")  or ""
-        features = request.form.get(f"features_{idx}")
+        
+        # Handle features with proper error checking
+        features_str = request.form.get(f"features_{idx}")
+        if not features_str:
+            flash(f"Erreur: données de caractéristiques manquantes pour l'image {idx+1}.", "danger")
+            return redirect(url_for("main.upload"))
+        
+        try:
+            features = json.loads(features_str)
+        except json.JSONDecodeError:
+            flash(f"Erreur: format des caractéristiques invalide pour l'image {idx+1}.", "danger")
+            return redirect(url_for("main.upload"))
 
         # --- convert provenance flags to real booleans -------------
         label_manual   = str_to_bool(request.form.get(f"label_manual_{idx}"))
@@ -357,7 +464,6 @@ def confirm_upload_multiple():
         loc_manual     = str_to_bool(request.form.get(f"location_manual_{idx}"))
 
         add_image_to_db(filename, address, ts_str, label, label_manual, ts_manual, loc_manual, features)
-
 
     flash("Images enregistrées !", "success")
     return redirect(url_for("main.upload"))
@@ -420,7 +526,7 @@ def quick_upload():
 
     location = Location(address = address, latitude = lat, longitude = lon)
 
-    add_image_to_db(filename, location, timestamp_str, label_auto, False, False, False, features, True)
+    add_image_to_db(filename, location, timestamp_str, label_auto, False, False, False, json.dumps(features), True)
     flash("Image enregistrée !", 'success')
     return redirect(url_for("main.upload"))
 
@@ -433,7 +539,7 @@ def extract_from_video():
 
     video_path = os.path.join(current_app.config["UPLOAD_FOLDER"], video_name)
     cap = cv2.VideoCapture(video_path)
-    saved_frames, labels, timestamps, locations = [], [], [], []
+    saved_frames, labels, timestamps, locations, feats = [], [], [], [], []
 
     for sec in ts_list:
         cap.set(cv2.CAP_PROP_POS_MSEC, sec * 1000)
@@ -446,7 +552,9 @@ def extract_from_video():
         saved_frames.append(img_name)
 
         # Auto-détection pour chaque frame
-        labels.append(classify_image_by_rules(img_path))
+        label_auto, features = classify_image_by_rules(img_path)
+        labels.append(label_auto)
+        feats.append(features)
         ts_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M")
         timestamps.append(ts_iso)
         locations.append("")   # ou ta fonction EXIF si besoin
@@ -459,7 +567,8 @@ def extract_from_video():
         filenames=saved_frames,
         auto_labels=labels,
         auto_timestamps=timestamps,
-        auto_locations=locations
+        auto_locations=locations,
+        feats=feats
     )
 
 @main.route("/delete_image/<int:image_id>", methods=["POST"])
@@ -490,6 +599,21 @@ def delete_image(image_id):
 def edit_image(image_id):
     img = Image.query.get_or_404(image_id)
 
+    # Create features dictionary from existing image data
+    features = {
+        "dark_ratio": img.dark_ratio or 0,
+        "edge_density": img.edge_density or 0,
+        "contour_count": img.contour_count or 0,
+        "color_diversity": img.color_diversity or 0,
+        "avg_saturation": img.avg_saturation or 0,
+        "bright_ratio": img.bright_ratio or 0,
+        "std_intensity": img.std_intensity or 0,
+        "entropy": img.entropy or 0,
+        "color_clusters": img.color_clusters or 0,
+        "aspect_dev": img.aspect_dev or 0,
+        "fill_ratio": img.fill_ratio or 0,
+    }
+
     return render_template(
         "confirm_upload.html",        # same template!
         edit_mode=True,               # flag
@@ -498,6 +622,7 @@ def edit_image(image_id):
         auto_label=img.label or "full",
         auto_timestamp=img.timestamp.strftime("%Y-%m-%dT%H:%M"),
         auto_location=img.location.address if img.location else "",
+        features=features,
     )
 
 @main.route("/update_image", methods=["POST"])
@@ -801,7 +926,7 @@ def rules_test():
     os.makedirs(os.path.dirname(tmp), exist_ok=True)
     f.save(tmp)
 
-    result = classify_image_by_rules(tmp)   # ⇒ 'full' ou 'empty'
+    result, _ = classify_image_by_rules(tmp)   # ⇒ 'full' ou 'empty'
     os.remove(tmp)
 
     flash(f"Résultat : {result}", "success")
