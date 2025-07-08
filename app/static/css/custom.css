@@ -61,6 +61,9 @@
   /* Transitions */
   --transition-base: all 0.3s ease;
   --transition-fast: all 0.15s ease;
+
+  /* Shared neutrals & borders */
+  --border-light: rgba(0,0,0,.08);
 }
 
 /* ===================================
@@ -807,3 +810,43 @@ a:hover {
     margin-top: var(--spacing-md);
   }
 }
+
+.navbar-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030;               /* above content */
+  transition: top 0.3s ease;   /* animate hide/show */
+}
+body {
+  padding-top: 100px; /* push content below navbar */
+}
+
+.header {
+  background: white;
+  color: var(--white);
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-xl);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Generic headers used on several pages */
+.page-title     { font-size: var(--font-size-3xl); font-weight: 700; margin-bottom: var(--spacing-sm); color: var(--navy-primary); }
+.page-subtitle  { font-size: var(--font-size-lg); opacity:.9; margin-bottom:0; }
+
+/* Generic “stats badge” (used in upload & dashboard headers) */
+.upload-stats   { background:rgba(255,255,255,.1); padding:var(--spacing-xs) var(--spacing-md);
+                  border-radius:var(--radius-md); backdrop-filter:blur(10px); font-size:var(--font-size-sm); max-width:7.5rem; }
+.stat-item      { font-weight:500; }
+
+/* Generic flexible gallery actions (appears on both pages) */
+.image-actions       { display:flex; gap:var(--spacing-sm); border-top:1px solid var(--border-light); padding-top:var(--spacing-sm); margin-top:var(--spacing-sm);}
+.image-actions a,
+.image-actions .btn  { width:100%; display:inline-flex; align-items:center; justify-content:center; padding:.375rem .75rem; border-radius:var(--radius-md); white-space:nowrap;}
+.image-actions .delete-form{flex:1 1 0; display:flex;}
+
+.card           { padding: var(--spacing-lg); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.gap-lg         { gap: var(--spacing-lg); }
+
