@@ -21,7 +21,6 @@ from geopy.geocoders import Nominatim
 
 import json, pathlib, threading
 from typing import Dict, Any
-from flask_babel import _
 
 RULES_PATH   = pathlib.Path(__file__).with_name("rules.json")
 _rules_lock  = threading.RLock()
