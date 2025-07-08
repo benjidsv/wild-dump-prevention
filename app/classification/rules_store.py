@@ -11,15 +11,18 @@ _cache: Dict[str, Any] | None = None
 _mtime: float | None = None
 
 DEFAULTS = {
-    "edge_density"      : 0.05,
-    "texture_variance"  : 500,
-    "color_diversity"   : 800,
-    "contour_count"     : 20,
-    "brightness_low"    : 80,
-    "brightness_high"   : 180,
-    "avg_saturation"    : 100,
-    "file_size"         : 100_000,
-    "full_score_thresh" : 4
+    "dark_ratio"       : 0.12,
+    "edge_density"     : 0.056,
+    "contour_count"    : 8,
+    "color_diversity"  : 120,
+    "avg_saturation"   : 0.50,
+    "bright_ratio"     : 0.01,
+    "std_intensity"    : 0.35,
+    "entropy"          : 7.00,
+    "color_clusters"   : 3,
+    "aspect_dev"       : 0.40,
+    "fill_ratio"       : 0.85,
+    "full_score_thresh": 4
 }
 
 def _touch_file_with_defaults() -> None:
