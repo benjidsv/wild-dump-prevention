@@ -1,163 +1,454 @@
 {% extends "base.html" %}
-{% block title %}Upload{% endblock %}
+{% block title %}Mes Images - WDP{% endblock %}
+
+{% block extra_head %}
+{# Page-specific styles are embedded here to encapsulate the component's design #}
+<style>
+  :root {
+    --border-light: rgba(0, 0, 0, 0.08); /* Aligned with custom.css shadows/borders */
+  }
+
+  .image-actions a, .image-actions .delete-form {
+    flex: 1 1 0; /* ✅ already good */
+}
+.image-actions .btn {
+    width: 100%; /* ✅ already good */
+    white-space: nowrap; /* ✅ prevent text wrapping */
+}
+.image-actions .delete-form {
+    display: flex;
+}
+.image-actions .delete-form button {
+    width: 100%;border-radius: 0.375rem
+}
+
+.image-actions a.btn,
+.image-actions .delete-form button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.375rem 0.75rem; /* same as Bootstrap default btn padding */
+    width: 100%;
+    border-radius: 0.375rem
+}
+
+.metadata-value.truncate {
+  max-width: 180px;         /* ajuste si tu veux plus large */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Icônes « manuel » / « auto » */
+.field-origin-icon {
+  font-size: 0.9rem;
+  margin-left: .25rem;
+  opacity: .7;
+  cursor: pointer;
+}
+
+  /* Upload Controls Card */
+  .upload-controls-card {
+    background: var(--white);
+    border: none;
+    box-shadow: var(--shadow-sm);
+    border-radius: var(--radius-lg);
+  }
+
+  .upload-section-title {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--navy-primary);
+    margin-bottom: var(--spacing-md);
+    display: flex;
+    align-items: center;
+  }
+
+  /* Upload Mode Selection */
+  .btn-mode-custom {
+    background-color: var(--light-gray);
+    border: 1px solid var(--border-light);
+    color: var(--charcoal);
+    font-weight: 500;
+    transition: all 0.2s ease;
+    flex: 1;
+  }
+
+  .btn-mode-custom:hover {
+    border-color: var(--teal-accent);
+    background-color: rgba(74, 155, 142, 0.1);
+  }
+
+  .btn-check:checked + .btn-mode-custom {
+    background-color: var(--teal-accent);
+    border-color: var(--teal-accent);
+    color: var(--white);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Advanced File Input */
+  .file-input {
+    width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; position: absolute; z-index: -1;
+  }
+
+  .file-input-label {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 220px; padding: var(--spacing-lg);
+    border: 2px dashed var(--border-light); border-radius: var(--radius-md);
+    background: var(--light-gray); cursor: pointer; transition: all 0.2s ease; text-align: center;
+  }
+
+  .file-input-label:hover, .file-input-highlight {
+    border-color: var(--teal-accent); background-color: var(--white);
+  }
+
+  .file-input-icon { font-size: 2.5rem; color: var(--teal-accent); margin-bottom: var(--spacing-sm); }
+  .file-input-text { font-size: var(--font-size-lg); font-weight: 600; color: var(--navy-primary); }
+  .file-input-subtext { font-size: var(--font-size-sm); color: var(--charcoal); opacity: 0.8; }
+
+  .file-input-feedback {
+    margin-top: var(--spacing-md); padding: var(--spacing-xs) var(--spacing-sm);
+    background: rgba(124, 179, 66, 0.1); border-radius: var(--radius-sm);
+    font-weight: 500; display: flex; align-items: center;
+  }
+  .selected-file-name { color: var(--forest-green); }
+
+  .file-input-label.has-file .file-input-prompt { display: none; }
+
+  /* Gallery Card */
+  .gallery-card {
+    background-color: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: none;
+  }
+
+  /* Image Card Styling */
+  .image-card { border: 1px solid var(--border-light); box-shadow: var(--shadow-sm); transition: all 0.2s ease; }
+  .image-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); border-color: var(--teal-accent); }
+
+  .image-preview { position: relative; cursor: pointer; overflow: hidden; }
+  .image-thumbnail { object-fit: cover; transition: transform 0.3s ease; }
+  .image-preview:hover .image-thumbnail { transform: scale(1.05); }
+
+  .image-overlay {
+    position: absolute; inset: 0; background: rgba(30, 58, 95, 0.7);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.3s ease;
+  }
+  .image-preview:hover .image-overlay { opacity: 1; }
+  .image-overlay i { font-size: 2rem; color: var(--white); }
+
+  /* Metadata & Actions Styling */
+  .metadata-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-xs); }
+  .metadata-label { font-size: var(--font-size-sm); font-weight: 500; color: var(--charcoal); }
+  .metadata-value { font-size: var(--font-size-sm); font-weight: 500; color: var(--navy-primary); }
+  .status-badge { font-weight: 600; }
+  .status-manual { background-color: var(--forest-green); color: var(--white); }
+  .status-auto { background-color: var(--teal-accent); color: var(--white); }
+
+  .image-actions {
+    border-top: 1px solid var(--border-light);
+    padding-top: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    display: flex;
+    gap: var(--spacing-sm);
+  }
+  .image-actions a, .image-actions .delete-form {
+      flex: 1 1 0; /* Ensure both items grow and shrink equally */
+  }
+  .image-actions .btn {
+      width: 100%; /* Make buttons fill their container */
+  }
+
+  /* List View */
+  .gallery-list-view .image-card { flex-direction: row; align-items: stretch; }
+  .gallery-list-view .image-preview { width: 150px; flex-shrink: 0; }
+  .gallery-list-view .image-preview .ratio { height: 100%; }
+  .gallery-list-view .image-card .card-body { flex: 1; }
+  .gallery-list-view .image-actions { width: 120px; flex-shrink: 0; flex-direction: column; justify-content: center; border-top: none; margin-top: 0; border-left: 1px solid var(--border-light); padding: var(--spacing-sm); }
+
+  @media (max-width: 991px) {
+      .gallery-list-view .image-card { flex-direction: column; }
+      .gallery-list-view .image-preview, .gallery-list-view .image-actions { width: 100%; }
+      .gallery-list-view .image-actions { flex-direction: row; border-left: none; border-top: 1px solid var(--border-light); }
+  }
+
+  /* Empty State */
+  .empty-state-icon { font-size: 3rem; color: var(--teal-accent); }
+</style>
+{% endblock %}
+
 {% block content %}
 
 {% if current_user.is_admin %}
-<div class="btn-group mb-3" role="group" aria-label="Upload mode">
-    <input type="radio" class="btn-check" name="uploadMode" id="singleMode" value="single" autocomplete="off" checked onchange="setUploadMode()">
-    <label class="btn btn-outline-primary" for="singleMode">Unitaire</label>
+<div class="card upload-controls-card mb-4 fade-in">
+    <div class="card-body p-lg-4">
+        <h3 class="mb-4 d-flex align-items-center"><i class="bi bi-cloud-upload me-2 text-accent"></i>Ajouter des Fichiers</h3>
+        <div class="row g-4">
+            <div class="col-md-12 col-lg-3">
+                <div class="mb-4">
+                    <h6 class="upload-section-title"><i class="bi bi-toggles me-2"></i>Mode</h6>
+                    <div class="btn-group-vertical w-100" role="group">
+                        <input type="radio" class="btn-check" name="uploadMode" id="singleMode" value="single" autocomplete="off" checked onchange="setUploadMode()">
+                        <label class="btn btn-mode-custom text-start p-3" for="singleMode"><i class="bi bi-image me-2"></i>Unitaire</label>
 
-    <input type="radio" class="btn-check" name="uploadMode" id="batchMode" value="batch" autocomplete="off" onchange="setUploadMode()">
-    <label class="btn btn-outline-primary" for="batchMode">Multiple</label>
+                        <input type="radio" class="btn-check" name="uploadMode" id="batchMode" value="batch" autocomplete="off" onchange="setUploadMode()">
+                        <label class="btn btn-mode-custom text-start p-3" for="batchMode"><i class="bi bi-images me-2"></i>Multiple</label>
 
-    <input type="radio" class="btn-check" name="uploadMode" id="videoMode" value="video" autocomplete="off" onchange="setUploadMode()">
-    <label class="btn btn-outline-primary" for="videoMode">Vidéo</label>
+                        <input type="radio" class="btn-check" name="uploadMode" id="videoMode" value="video" autocomplete="off" onchange="setUploadMode()">
+                        <label class="btn btn-mode-custom text-start p-3" for="videoMode"><i class="bi bi-camera-video me-2"></i>Vidéo</label>
+                    </div>
+                </div>
+                <div>
+                    <h6 class="upload-section-title"><i class="bi bi-lightning me-2"></i>Actions Rapides</h6>
+                    <a href="{{ url_for('main.user_upload') }}" class="btn btn-secondary-custom w-100 p-3"><i class="bi bi-camera me-2"></i>Prendre une photo</a>
+                </div>
+            </div>
 
-    <a href="{{ url_for('main.user_upload') }}" class="btn btn-outline-primary">
-        <i class="bi bi-camera-video me-1"></i>
-        Prendre une photo
-    </a>
+            <div class="col-md-12 col-lg-9">
+                 <h6 class="upload-section-title"><i class="bi bi-folder-plus me-2"></i>Sélection de Fichiers</h6>
+                <form method="POST" enctype="multipart/form-data" action="{{ url_for('main.upload') }}" class="upload-form d-flex flex-column">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="file-input-wrapper mb-3">
+                        <label for="imageInput" class="file-input-label h-100" id="uploadLabel">
+                            <div class="file-input-prompt">
+                                <i class="bi bi-cloud-upload file-input-icon"></i>
+                                <div class="d-flex flex-column justify-content-center">
+                                    <span class="file-input-text">&nbspChoisir une image</span>
+                                    <span class="file-input-subtext">&nbspou glissez-déposez ici</span>
+                                </div>
+                            </div>
+                            <div class="file-input-feedback" id="fileInputFeedback" style="display: none;">
+                                <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                <span class="selected-file-name"></span>
+                            </div>
+                        </label>
+                        <input type="file" name="image" class="file-input" id="imageInput" required>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary-custom"><i class="bi bi-send me-2"></i>Envoyer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not current_user.is_admin %}
+<div class="card mb-4 fade-in">
+    <div class="card-body text-center p-4">
+        <div class="simple-upload-icon mb-3"><i class="bi bi-camera"></i></div>
+        <h5 class="fw-bold text-primary">Contribuer à la surveillance</h5>
+        <p class="text-muted">Prenez une photo pour aider à garder nos communautés propres.</p>
+        <a href="{{ url_for('main.user_upload') }}" class="btn btn-secondary-custom"><i class="bi bi-camera me-2"></i>Prendre une photo</a>
+    </div>
+</div>
+{% endif %}
+
+
+<div class="card gallery-card fade-in">
+    <div class="card-body p-lg-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0 d-flex align-items-center"><i class="bi bi-collection me-2 text-accent"></i>Galerie d'Images</h3>
+            {% if images %}
+            <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary gallery-view-btn active" data-view="grid"><i class="bi bi-grid-3x3-gap"></i></button>
+                <button type="button" class="btn btn-outline-secondary gallery-view-btn" data-view="list"><i class="bi bi-list"></i></button>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if images %}
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3" id="galleryGrid">
+            {% for img in images %}
+            <div class="col gallery-item">
+                <div class="card image-card h-100">
+                    <div class="image-preview" data-bs-toggle="modal" data-bs-target="#modal{{ img.id }}">
+                        <div class="ratio ratio-4x3 bg-light"><img src="{{ url_for('static', filename='uploads/' + img.path.split('/')[-1]) }}" class="image-thumbnail" alt="Image de surveillance" loading="lazy"></div>
+                        <div class="image-overlay"><i class="bi bi-zoom-in"></i></div>
+                    </div>
+                    <div class="card-body p-3 d-flex flex-column">
+                        <div class="flex-grow-1">
+                            <div class="flex-grow-1">
+  {# --- LABEL --- #}
+  <div class="metadata-item">
+      <span class="metadata-label">Label</span>
+      <span class="metadata-value">
+          {{ img.label or 'Non annoté' }}
+          {% if img.label_manual %}
+              <i class="bi bi-pencil-square field-origin-icon"
+                 data-bs-toggle="tooltip"
+                 title="Saisi manuellement"></i>
+          {% else %}
+              <i class="bi bi-cpu field-origin-icon"
+                 data-bs-toggle="tooltip"
+                 title="Détecté automatiquement"></i>
+          {% endif %}
+      </span>
+  </div>
+
+  {# --- DATE --- #}
+  <div class="metadata-item">
+      <span class="metadata-label">Date</span>
+      <span class="metadata-value">
+          {{ img.timestamp.strftime('%d/%m/%y %H:%M') }}
+          {% if img.timestamp_manual %} %}
+              <i class="bi bi-pencil-square field-origin-icon"
+                 data-bs-toggle="tooltip"
+                 title="Saisi manuellement"></i>
+          {% else %}
+              <i class="bi bi-cpu field-origin-icon"
+                 data-bs-toggle="tooltip"
+                 title="Horodatage automatique"></i>
+          {% endif %}
+      </span>
+  </div>
+
+  {# --- ADRESSE --- #}
+  <div class="metadata-item">
+  <span class="metadata-label">Adresse</span>
+  <span class="metadata-value d-flex align-items-center">
+    <span class="text-truncate" style="max-width: 160px;">
+      {{ img.location.address }}
+    </span>
+    {% if img.address_manual %}
+      <i class="bi bi-pencil-square field-origin-icon ms-2"
+         data-bs-toggle="tooltip"
+         title="Saisi manuellement"></i>
+    {% else %}
+      <i class="bi bi-cpu field-origin-icon ms-2"
+         data-bs-toggle="tooltip"
+         title="Géocodage automatique"></i>
+    {% endif %}
+  </span>
 </div>
 
-<!-- Upload form -->
-<form method="POST" enctype="multipart/form-data" action="{{ url_for('main.upload') }}" class="mb-3">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <div class="mb-3">
-    <label for="imageInput" class="form-label" id="uploadLabel">Choisir une image</label>
-    <input type="file" name="image" class="form-control" id="imageInput" required>
-  </div>
-  <button type="submit" class="btn btn-primary">Envoyer</button>
-</form>
+</div>
 
+                        </div>
+                        {% if current_user.is_admin or current_user.id == img.user_id %}
+                        <div class="image-actions">
+                            {% if current_user.is_admin %}
+                                <a href="{{ url_for('main.edit_image', image_id=img.id) }}" class="btn btn-sm btn-outline-custom"><i class="bi bi-pencil-square me-1"></i>Éditer</a>
+                            {% endif %}
+                            <form method="POST" action="{{ url_for('main.delete_image', image_id=img.id) }}" class="delete-form" onsubmit="return confirm('Supprimer cette image ?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Supprimer</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center p-5">
+            <div class="empty-state-icon mb-3"><i class="bi bi-images"></i></div>
+            <h5 class="fw-bold text-primary">Aucune image dans la galerie</h5>
+            <p class="text-muted">Commencez par uploader des fichiers pour les voir apparaître ici.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% for img in images %}
+<div class="modal fade" id="modal{{ img.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content"><div class="modal-body p-0">
+        <img src="{{ url_for('static', filename='uploads/' + img.path.split('/')[-1]) }}" class="w-100" alt="Image complète">
+    </div></div></div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+
+{% block extra_scripts %}
 <script>
 function setUploadMode() {
     const multiple = document.getElementById("batchMode").checked;
     const video = document.getElementById("videoMode").checked;
     const input = document.getElementById("imageInput");
     const label = document.getElementById("uploadLabel");
+    const icon = label.querySelector('.file-input-icon');
+    const text = label.querySelector('.file-input-text');
+
     input.value = "";
+    updateFileInputFeedback();
 
     if (multiple) {
-        input.setAttribute("multiple", "multiple");
-        input.setAttribute("name", "images");
-        label.textContent = "Choisir des images"
+        input.setAttribute("multiple", "multiple"); input.setAttribute("name", "images"); input.setAttribute("accept", "image/*");
+        icon.className = "bi bi-images file-input-icon"; text.textContent = "Choisir des images";
     } else if (video) {
-        input.removeAttribute("multiple");
-        input.setAttribute("name", "video")
-        label.textContent = "Choisir une vidéo"
+        input.removeAttribute("multiple"); input.setAttribute("name", "video"); input.setAttribute("accept", "video/*");
+        icon.className = "bi bi-camera-video file-input-icon"; text.textContent = "Choisir une vidéo";
     } else {
-        input.removeAttribute("multiple");
-        input.setAttribute("name", "image");
-        label.textContent = "Choisir une image"
+        input.removeAttribute("multiple"); input.setAttribute("name", "image"); input.setAttribute("accept", "image/*");
+        icon.className = "bi bi-cloud-upload file-input-icon"; text.textContent = "Choisir une image";
     }
 }
+
+function updateFileInputFeedback() {
+    const input = document.getElementById('imageInput');
+    if (!input) return; // Exit if element doesn't exist
+    const label = document.getElementById('uploadLabel');
+    const feedback = document.getElementById('fileInputFeedback');
+    const prompt = label.querySelector('.file-input-prompt');
+    const fileNameEl = feedback.querySelector('.selected-file-name');
+
+    if (input.files && input.files.length > 0) {
+        prompt.style.display = 'none';
+        feedback.style.display = 'flex';
+        label.classList.add('has-file');
+        fileNameEl.textContent = input.files.length === 1 ? input.files[0].name : `${input.files.length} fichiers sélectionnés`;
+    } else {
+        prompt.style.display = 'flex';
+        feedback.style.display = 'none';
+        label.classList.remove('has-file');
+        fileNameEl.textContent = '';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Gallery view toggle
+    const viewButtons = document.querySelectorAll('.gallery-view-btn');
+    const gallery = document.getElementById('galleryGrid');
+    if (gallery) {
+        viewButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const view = this.dataset.view;
+                viewButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                if (view === 'list') {
+                    gallery.className = 'row row-cols-1 g-2 gallery-list-view';
+                } else {
+                    gallery.className = 'row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3';
+                }
+            });
+        });
+    }
+
+    // Drag & Drop and file selection feedback
+    const fileInput = document.getElementById('imageInput');
+    const fileLabel = document.getElementById('uploadLabel');
+    if (fileInput && fileLabel) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => fileLabel.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); }));
+        ['dragenter', 'dragover'].forEach(e => fileLabel.addEventListener(e, () => fileLabel.classList.add('file-input-highlight')));
+        ['dragleave', 'drop'].forEach(e => fileLabel.addEventListener(e, () => fileLabel.classList.remove('file-input-highlight')));
+        fileLabel.addEventListener('drop', e => {
+            fileInput.files = e.dataTransfer.files;
+            updateFileInputFeedback();
+        });
+        fileInput.addEventListener('change', updateFileInputFeedback);
+    }
+
+    // Bootstraps tooltips for manual/auto icons
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+      new bootstrap.Tooltip(el);
+    });
+
+});
 </script>
-{% else %}
-<a href="{{ url_for('main.user_upload') }}" class="btn btn-success mb-4">
-        <i class="bi bi-camera-video me-1"></i> Prendre une photo
-</a>
-{% endif %}
-
-{% if images %}
-  <h2 class="mb-3">Images uploadées</h2>
-{% endif %}
-
-<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
-  {% for img in images %}
-    <div class="col">
-      <div class="card h-100 shadow-sm">
-
-        <!-- Preview: 4 × 3 ratio, edge-to-edge -->
-<div class="ratio ratio-4x3 bg-light rounded-top" style="cursor: zoom-in;"
-     data-bs-toggle="modal" data-bs-target="#modal{{ img.id }}">
-  <img src="{{ url_for('static', filename='uploads/' + img.path.split('/')[-1]) }}"
-       class="w-100 h-100 object-fit-cover rounded-top"
-       alt="Image dump">
-</div>
-
-    <!-- Modal -->
-        <div class="modal fade" id="modal{{ img.id }}" tabindex="-1" aria-hidden="true">
-          <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content bg-transparent border-0">
-              <button type="button" class="btn-close position-absolute end-0 m-2" data-bs-dismiss="modal"></button>
-              <img src="{{ url_for('static', filename='uploads/' + img.path.split('/')[-1]) }}"
-                   class="w-100 rounded shadow" alt="Full image">
-            </div>
-          </div>
-        </div>
-
-
-        {# ---------- meta data ---------- #}
-<div class="card-body p-2">
-  {# --- Label --- #}
-  <h6 class="card-title mb-1">
-    Label&nbsp;:
-    <span class="badge {{ 'bg-secondary' if img.is_manual else 'bg-info' }}">
-      {{ img.label or 'Non annotée' }}
-    </span>
-    {% if current_user.is_admin %}
-      <i class="bi bi-check-lg ms-1
-                {{ 'text-success' if img.label_manual else 'text-info' }}"
-         title="{{ 'Manuel' if img.label_manual else 'Auto' }}"></i>
-    {% endif %}
-  </h6>
-
-  {# --- Timestamp --- #}
-  <p class="card-text small mb-1">
-    <i class="bi bi-clock me-1"></i>
-    {{ img.timestamp.strftime('%d/%m/%Y %H:%M') }}
-    {% if current_user.is_admin %}
-      <i class="bi bi-check-lg ms-1
-                {{ 'text-success' if img.timestamp_manual else 'text-info' }}"
-         title="{{ 'Manuel' if img.timestamp_manual else 'Auto' }}"></i>
-    {% endif %}
-  </p>
-
-  {# --- Location --- #}
-  {% if img.location %}
-    <p class="card-text small text-truncate">
-      <i class="bi bi-geo-alt me-1"></i>
-      {{ img.location.address or
-         (img.location.latitude|string ~ ',' ~ img.location.longitude|string) }}
-      {% if current_user.is_admin %}
-        <i class="bi bi-check-lg ms-1
-                  {{ 'text-success' if img.location_manual else 'text-info' }}"
-           title="{{ 'Manuel' if img.location_manual else 'Auto' }}"></i>
-      {% endif %}
-    </p>
-  {% endif %}
-</div>
-
-
-        <!-- 3) footer with delete button (if allowed) -->
-        {% if current_user.is_admin or current_user.id == img.user_id %}
-          <div class="card-footer bg-transparent border-0 p-2">
-              {% if current_user.is_admin %}
-  <a href="{{ url_for('main.edit_image', image_id=img.id) }}"
-     class="btn btn-sm btn-outline-primary w-100 mb-2">
-     <i class="bi bi-pencil-square me-1"></i>Éditer
-  </a>
-{% endif %}
-
-            <form method="POST"
-                  action="{{ url_for('main.delete_image', image_id=img.id) }}"
-                  onsubmit="return confirm('Supprimer cette image ?');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button class="btn btn-sm btn-outline-danger w-100">
-                <i class="bi bi-trash me-1"></i>Supprimer
-              </button>
-            </form>
-          </div>
-        {% endif %}
-      </div>
-    </div>
-  {% else %}
-    <strong>Vous n'avez pas encore uploadé d'images.</strong>
-  {% endfor %}
-</div>
-
-<style>
-.object-fit-contain { object-fit: contain; }
-.card-footer form { display: block; }
-</style>
 {% endblock %}
