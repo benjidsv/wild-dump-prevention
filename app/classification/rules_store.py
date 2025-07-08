@@ -7,8 +7,8 @@ from typing import Dict, Any
 
 RULES_PATH   = pathlib.Path(__file__).with_name("rules.json")
 _lock        = threading.RLock()
-_cache: Dict[str, Any] | None = None
-_mtime: float | None = None
+_cache: Dict[str, Any] = None
+_mtime: float = None
 
 DEFAULTS = {
     "dark_ratio"       : 0.12,

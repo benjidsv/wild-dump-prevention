@@ -4,7 +4,7 @@ from flask_wtf.csrf import generate_csrf
 from werkzeug.security import generate_password_hash
 
 from config import DevConfig
-from app.extensions import database, csrf
+from app.extensions import database, csrf, socketio
 import os
 
 def create_app(config_class=DevConfig):
@@ -15,6 +15,7 @@ def create_app(config_class=DevConfig):
 
     database.init_app(app)
     csrf.init_app(app)
+    socketio.init_app(app)
     app.jinja_env.globals["csrf_token"] = generate_csrf
 
     from app.routes import main
@@ -48,7 +49,7 @@ def create_app(config_class=DevConfig):
 
         user = User(name=name,
                     mail=email,
-                    password=generate_password_hash(pwd),
+                    password=generate_password_hash(pwd, method='pbkdf2:sha256', salt_length=8),
                     is_admin=True,
                     is_superadmin=True)
         database.session.add(user)

@@ -10,6 +10,7 @@ __pycache__/
 *.conda
 *.env
 *.venv
+*.myenv
 venv/
 env/
 ENV/

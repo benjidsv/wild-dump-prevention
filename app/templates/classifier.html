@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Classifier - WDP{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/upload.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="header upload-header">
+    <div class="row align-items-center justify-content-between">
+        <div class="col-md-auto">
+            <h1 class="page-title text-white">
+                <i class="bi bi-robot me-3"></i>YOLO Classifier
+            </h1>
+            <p class="page-subtitle">
+                Classify an image as "empty" or "full" using the trained YOLO model.
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="card upload-controls-card mb-4 fade-in">
+    <div class="card-body p-lg-4">
+        <h3 class="mb-4 d-flex align-items-center"><i class="bi bi-cloud-upload me-2 text-accent"></i>Upload Image</h3>
+        <div class="row g-4">
+            <div class="col-md-12">
+                 <h6 class="upload-section-title"><i class="bi bi-folder-plus me-2"></i>Select File</h6>
+                <form method="POST" enctype="multipart/form-data" action="{{ url_for('main.classifier') }}" class="upload-form d-flex flex-column">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="file-input-wrapper mb-3">
+                        <label for="imageInput" class="file-input-label h-100" id="uploadLabel">
+                            <div class="file-input-prompt">
+                                <i class="bi bi-cloud-upload file-input-icon"></i>
+                                <span class="file-input-text">&nbsp;Choose an image</span>
+                                <span class="file-input-subtext">&nbsp;or drag and drop here</span>
+                            </div>
+                            <div class="file-input-feedback" id="fileInputFeedback" style="display: none;">
+                                <i class="bi bi-check-circle-fill file-feedback-icon"></i>
+                                <div class="file-feedback-title">File ready!</div>
+                                <div class="selected-file-name"></div>
+                                <div class="file-feedback-subtitle">Click "Classify" to process your file</div>
+                            </div>
+                        </label>
+                        <input type="file" name="image" class="file-input" id="imageInput" required>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary-custom"><i class="bi bi-send me-2"></i>Classify</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if result %}
+<div class="card gallery-card fade-in">
+    <div class="card-body p-lg-4">
+        <h3 class="mb-4 d-flex align-items-center"><i class="bi bi-bar-chart-line me-2 text-accent"></i>Classification Result</h3>
+        <div class="row">
+            <div class="col-md-6">
+                <img src="data:image/jpeg;base64,{{ result.image_data }}" class="img-fluid rounded" alt="Uploaded image">
+            </div>
+            <div class="col-md-6">
+                <h4>Prediction: <span class="text-primary">{{ result.prediction }}</span></h4>
+                <p>Confidence: {{ "%.2f"|format(result.confidence * 100) }}%</p>
+                <div class="progress">
+                    <div class="progress-bar" role="progressbar" style="width: {{ result.confidence * 100 }}%;" aria-valuenow="{{ result.confidence * 100 }}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <hr>
+                <h5>Probabilities</h5>
+                <ul>
+                    {% for class, prob in result.class_probabilities.items() %}
+                    <li>{{ class }}: {{ "%.2f"|format(prob * 100) }}%</li>
+                    {% endfor %}
+                </ul>
+                <hr>
+                <p class="text-muted">Inference time: {{ "%.2f"|format(result.inference_time_ms) }} ms</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function updateFileInputFeedback() {
+    const input = document.getElementById('imageInput');
+    if (!input) return;
+    const label = document.getElementById('uploadLabel');
+    const feedback = document.getElementById('fileInputFeedback');
+    const prompt = label.querySelector('.file-input-prompt');
+    const fileNameEl = feedback.querySelector('.selected-file-name');
+
+    if (input.files && input.files.length > 0) {
+        prompt.style.display = 'none';
+        feedback.style.display = 'flex';
+        fileNameEl.textContent = input.files[0].name;
+    } else {
+        prompt.style.display = 'flex';
+        feedback.style.display = 'none';
+        fileNameEl.textContent = '';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('imageInput');
+    const fileLabel = document.getElementById('uploadLabel');
+    if (fileInput && fileLabel) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => fileLabel.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); }));
+        ['dragenter', 'dragover'].forEach(e => fileLabel.addEventListener(e, () => fileLabel.classList.add('file-input-highlight')));
+        ['dragleave', 'drop'].forEach(e => fileLabel.addEventListener(e, () => fileLabel.classList.remove('file-input-highlight')));
+        fileLabel.addEventListener('drop', e => {
+            fileInput.files = e.dataTransfer.files;
+            updateFileInputFeedback();
+        });
+        fileInput.addEventListener('change', updateFileInputFeedback);
+    }
+});
+</script>
+{% endblock %}

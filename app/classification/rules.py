@@ -89,17 +89,17 @@ def extract_features(image_path: str):
     fill_ratio    = float(np.sum((roi_mask>0)&(gray<250))) / (np.sum(roi_mask>0)+1e-6)
 
     return {
-      "dark_ratio":      dark_ratio,
-      "edge_density":    edge_density,
-      "contour_count":   contour_count,
-      "color_diversity": color_div,
-      "avg_saturation":  avg_sat,
-      "bright_ratio":    bright_ratio,
-      "std_intensity":   std_int,
-      "entropy":         entropy,
-      "color_clusters":  color_clusters,
-      "aspect_dev":      aspect_dev,
-      "fill_ratio":      fill_ratio,
+      "dark_ratio":      float(dark_ratio),
+      "edge_density":    float(edge_density),
+      "contour_count":   int(contour_count),
+      "color_diversity": int(color_div),
+      "avg_saturation":  float(avg_sat),
+      "bright_ratio":    float(bright_ratio),
+      "std_intensity":   float(std_int),
+      "entropy":         float(entropy),
+      "color_clusters":  int(color_clusters),
+      "aspect_dev":      float(aspect_dev),
+      "fill_ratio":      float(fill_ratio),
     }
 
 def classify_image_by_rules(image_path: str) -> (str, dict):
@@ -111,7 +111,21 @@ def classify_image_by_rules(image_path: str) -> (str, dict):
 
     feat = extract_features(image_path)
     if feat is None:
-        return "empty"
+        # Return empty features dict when extraction fails
+        empty_features = {
+            "dark_ratio": 0.0,
+            "edge_density": 0.0,
+            "contour_count": 0,
+            "color_diversity": 0,
+            "avg_saturation": 0.0,
+            "bright_ratio": 0.0,
+            "std_intensity": 0.0,
+            "entropy": 0.0,
+            "color_clusters": 0,
+            "aspect_dev": 0.0,
+            "fill_ratio": 0.0,
+        }
+        return "empty", empty_features
 
     score = 0
     score += 2 if feat["dark_ratio"]      > rules.dark_ratio       else 0
