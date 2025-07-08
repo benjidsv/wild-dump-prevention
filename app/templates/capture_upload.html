@@ -1,71 +1,183 @@
 {% extends "base.html" %}
-{% block title %}Capture & Upload{% endblock %}
+
+{% block title %}Capture Photo{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/capture_upload.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="cont">
-<h2 class="mb-4 text-center">Prendre une photo et l’envoyer</h2>
 
-  <div class="d-flex flex-column align-items-center gap-3">
-<!-- Video preview -->
-
-<div class="mb-3">
-  <video id="preview" class="w-80 border rounded w-md-75 w-lg-50 mx-auto" playsinline autoplay></video>
-  <canvas id="snapshotCanvas" class="d-none w-80 border rounded w-md-75 w-lg-50 mx-auto"></canvas>
+<!-- Environmental Header -->
+<div class="header capture-header capture-fade-in">
+    <div class="row align-items-center justify-content-center text-center">
+        <div class="col-md-8">
+            <h1 class="capture-title">
+                <div class="capture-icon">
+                    <i class="bi bi-camera-fill"></i>
+                </div>
+                Capture Instantanée
+            </h1>
+            <p class="capture-subtitle">
+                Prenez une photo directement avec votre appareil pour signaler un dépôt sauvage
+            </p>
+        </div>
+    </div>
 </div>
 
+<div class="capture-container">
+    <!-- Camera Section -->
+    <div class="capture-camera-section capture-slide-up">
+        <h3 class="capture-camera-title">
+            <i class="bi bi-camera2"></i>
+            Interface de Capture
+        </h3>
+        
+        <!-- Video/Canvas Container -->
+        <div class="capture-video-container">
+            <div class="capture-status">
+                <div class="capture-status-live"></div>
+                <span>EN DIRECT</span>
+            </div>
+            <video id="preview" class="capture-video" playsinline autoplay></video>
+            <canvas id="snapshotCanvas" class="capture-canvas d-none"></canvas>
+        </div>
 
-<!-- Form automatically filled by JS -->
-<form id="captureForm" method="POST" action="{{ url_for('main.quick_upload') }}" enctype="multipart/form-data">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <input type="hidden" name="image" id="imageInput">
-  <input type="hidden" name="timestamp" id="timestampInput">
-  <input type="hidden" name="location" id="locationInput">
-  <input type="hidden" name="label" value="auto">
-  <input type="hidden" name="is_manual" value="false">
+        <!-- Capture Button -->
+        <div class="capture-button-container">
+            <button type="button" id="snapBtn" class="capture-btn">
+                <i class="bi bi-camera-fill"></i>
+            </button>
+        </div>
 
-  <button type="button" id="snapBtn" class="btn btn-primary btn-lg"><i class="bi bi-camera-video me-1"></i> Capturer</button>
-</form>
+        <!-- Loading State -->
+        <div class="capture-loading" id="loadingState">
+            <i class="bi bi-camera-video"></i>
+            <p>Traitement en cours...</p>
+        </div>
+
+        <!-- Success State -->
+        <div class="capture-success" id="successState">
+            <h4><i class="bi bi-check-circle-fill me-2"></i>Photo capturée !</h4>
+            <p>Envoi en cours vers le serveur...</p>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="capture-instructions capture-slide-up">
+        <h4><i class="bi bi-info-circle"></i>Instructions de capture</h4>
+        <ul>
+            <li>Autorisez l'accès à votre caméra lorsque demandé</li>
+            <li>Cadrez le dépôt sauvage dans le viseur</li>
+            <li>Appuyez sur le bouton de capture pour prendre la photo</li>
+            <li>La photo sera automatiquement envoyée et analysée</li>
+        </ul>
+    </div>
+
+    <!-- Navigation -->
+    <div class="capture-navigation capture-slide-up">
+        <a href="{{ url_for('main.upload') }}" class="capture-nav-btn">
+            <i class="bi bi-arrow-left"></i>
+            Retour à l'upload
+        </a>
+        <a href="{{ url_for('main.dashboard') }}" class="capture-nav-btn">
+            <i class="bi bi-grid"></i>
+            Tableau de bord
+        </a>
+    </div>
+
+    <!-- Hidden Form -->
+    <form id="captureForm" method="POST" action="{{ url_for('main.quick_upload') }}" enctype="multipart/form-data" style="display: none;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="image" id="imageInput">
+        <input type="hidden" name="timestamp" id="timestampInput">
+        <input type="hidden" name="location" id="locationInput">
+        <input type="hidden" name="label" value="auto">
+        <input type="hidden" name="is_manual" value="false">
+    </form>
 </div>
+
 <script>
 (async () => {
-  const video  = document.getElementById('preview');
+  const video = document.getElementById('preview');
   const canvas = document.getElementById('snapshotCanvas');
-  const ctx    = canvas.getContext('2d');
-  const btn    = document.getElementById('snapBtn');
+  const ctx = canvas.getContext('2d');
+  const btn = document.getElementById('snapBtn');
   const formEl = document.getElementById('captureForm');
+  const loadingState = document.getElementById('loadingState');
+  const successState = document.getElementById('successState');
 
-  /* camera */
-  const stream = await navigator.mediaDevices.getUserMedia({ video:{facingMode:'environment'}});
-  video.srcObject = stream;
+  try {
+    /* camera */
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: 'environment' }
+    });
+    video.srcObject = stream;
+  } catch (error) {
+    console.error('Erreur d\'accès à la caméra:', error);
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-exclamation-triangle"></i>';
+    return;
+  }
 
   /* capture */
-  btn.addEventListener('click', () => {
-    canvas.width  = video.videoWidth;
+  btn.addEventListener('click', async () => {
+    // Disable button and show loading
+    btn.disabled = true;
+    loadingState.classList.add('active');
+    
+    canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    video.classList.add('d-none');      // hide live preview
+    video.classList.add('d-none');
     canvas.classList.remove('d-none');
 
+    // Stop camera stream
     video.srcObject.getTracks().forEach(t => t.stop());
 
     canvas.toBlob(async blob => {
-      if (!blob) return;
+      if (!blob) {
+        loadingState.classList.remove('active');
+        btn.disabled = false;
+        return;
+      }
 
-      /* Build body – includes csrf automatically */
-      const body = new FormData(formEl);
-      body.set('image', blob, `capture_${Date.now()}.jpg`);
-      body.set('timestamp', new Date().toISOString().slice(0,16));
-
-      /* optional geo */
       try {
-        const g = await new Promise(r => navigator.geolocation.getCurrentPosition(r, () => r(null)));
-        if (g) body.set('location', `${g.coords.latitude},${g.coords.longitude}`);
-      } catch {}
+        /* Build body – includes csrf automatically */
+        const body = new FormData(formEl);
+        body.set('image', blob, `capture_${Date.now()}.jpg`);
+        body.set('timestamp', new Date().toISOString().slice(0, 16));
 
-      /* send */
-      const r = await fetch(formEl.action, { method:'POST', body });
-      if (r.redirected) window.location = r.url;
-    }, 'image/jpeg', .9);
+        /* optional geo */
+        try {
+          const g = await new Promise(r => 
+            navigator.geolocation.getCurrentPosition(r, () => r(null))
+          );
+          if (g) {
+            body.set('location', `${g.coords.latitude},${g.coords.longitude}`);
+          }
+        } catch {}
+
+        // Show success state
+        loadingState.classList.remove('active');
+        successState.classList.add('active');
+
+        /* send */
+        const r = await fetch(formEl.action, { method: 'POST', body });
+        if (r.redirected) {
+          window.location = r.url;
+        }
+      } catch (error) {
+        console.error('Erreur lors de l\'envoi:', error);
+        loadingState.classList.remove('active');
+        successState.classList.remove('active');
+        btn.disabled = false;
+        
+        // Show error state (could add error UI here)
+        alert('Erreur lors de l\'envoi de la photo. Veuillez réessayer.');
+      }
+    }, 'image/jpeg', 0.9);
   });
 })();
 </script>

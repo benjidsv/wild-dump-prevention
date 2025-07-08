@@ -2,43 +2,76 @@
 
 {% block title %}Inscription - WDP{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/register.css') }}">
+{% endblock %}
+
 {% block content %}
-<section class="d-flex justify-content-center align-items-center" style="min-height:70vh;">
-    <div class="card shadow-lg border-0 w-100" style="max-width: 560px;">
-        <div class="card-body p-5">
-            <h2 class="text-center mb-4 fw-bold">Inscription</h2>
+
+<!-- Environmental Header -->
+<div class="header register-header register-fade-in">
+    <div class="row align-items-center justify-content-center text-center">
+        <div class="col-md-8">
+            <h1 class="register-title">
+                <div class="register-icon">
+                    <i class="bi bi-person-plus-fill"></i>
+                </div>
+                Rejoignez la Communauté WDP
+            </h1>
+            <p class="register-subtitle">
+                Participez à la protection de notre environnement en surveillant les zones de déchets
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Register Form Container -->
+<section class="register-container">
+    <div class="register-card register-slide-up">
+        <div class="register-card-body">
+            <h2 class="register-form-title">Créer un Compte</h2>
 
             {% if error %}
-                <div class="alert alert-danger">{{ error }}</div>
+                <div class="register-alert register-alert-danger">{{ error }}</div>
             {% endif %}
 
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                <div class="form-floating mb-3">
-                    <input type="text" class="form-control" id="name" name="name" placeholder="Nom" required>
-                    <label for="name"><i class="bi bi-person me-2"></i>Nom</label>
+                <div class="register-form-group">
+                    <label for="name" class="register-form-label">
+                        <i class="bi bi-person"></i>Nom complet
+                    </label>
+                    <input type="text" class="register-form-control" id="name" name="name" placeholder="Entrez votre nom complet" required>
                 </div>
 
-                <div class="form-floating mb-3">
-                    <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com" required>
-                    <label for="email"><i class="bi bi-envelope me-2"></i>Email</label>
+                <div class="register-form-group">
+                    <label for="email" class="register-form-label">
+                        <i class="bi bi-envelope"></i>Adresse email
+                    </label>
+                    <input type="email" class="register-form-control" id="email" name="email" placeholder="votre@email.com" required>
                 </div>
 
-                <div class="form-floating mb-4">
-                    <input type="password" class="form-control" id="password" name="password" placeholder="Mot de passe" required>
-                    <label for="password"><i class="bi bi-lock me-2"></i>Mot de passe</label>
+                <div class="register-form-group">
+                    <label for="password" class="register-form-label">
+                        <i class="bi bi-lock"></i>Mot de passe
+                    </label>
+                    <input type="password" class="register-form-control" id="password" name="password" placeholder="Créez un mot de passe sécurisé" required>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100 py-2">S'inscrire</button>
+                <button type="submit" class="btn register-btn-submit w-100">
+                    S'inscrire
+                </button>
             </form>
 
-            <div class="mt-4 text-center">
+            <div class="register-login-link">
                 <small class="text-muted">
-                    Déjà un compte ? <a href="{{ url_for('main.login') }}">Se connecter</a>
+                    Déjà membre de la communauté ? 
+                    <a href="{{ url_for('main.login') }}">Se connecter</a>
                 </small>
             </div>
         </div>
     </div>
 </section>
+
 {% endblock %}

@@ -62,15 +62,82 @@
   .file-input-subtext { font-size: var(--font-size-sm); color: var(--charcoal); opacity: 0.8; }
 
   .file-input-feedback {
-    margin-top: var(--spacing-md); padding: var(--spacing-xs) var(--spacing-sm);
-    background: rgba(124, 179, 66, 0.1); border-radius: var(--radius-sm);
-    font-weight: 500; display: flex; align-items: center;
+    background: linear-gradient(135deg, rgba(124, 179, 66, 0.1) 0%, rgba(74, 155, 142, 0.1) 100%);
+    border: 2px solid var(--forest-green);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin: var(--spacing-md) 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 120px;
+    position: relative;
+    overflow: hidden;
+    animation: slideIn 0.4s ease-out;
   }
-  .selected-file-name { color: var(--forest-green); }
 
-  .file-input-label.has-file {
-      display: none;
+  .file-input-feedback::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: float 3s ease-in-out infinite;
   }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .file-feedback-icon {
+    font-size: 2.5rem;
+    color: var(--forest-green);
+    margin-bottom: var(--spacing-sm);
+    position: relative;
+    z-index: 2;
+    animation: bounce 2s ease-in-out infinite;
+  }
+
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    60% { transform: translateY(-5px); }
+  }
+
+  .file-feedback-title {
+    color: var(--forest-green);
+    font-weight: 700;
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--spacing-xs);
+    position: relative;
+    z-index: 2;
+  }
+
+  .selected-file-name {
+    color: var(--navy-primary);
+    font-weight: 600;
+    font-size: var(--font-size-md);
+    position: relative;
+    z-index: 2;
+    max-width: 100%;
+    word-break: break-word;
+  }
+
+  .file-feedback-subtitle {
+    color: var(--charcoal);
+    font-size: var(--font-size-sm);
+    opacity: 0.8;
+    margin-top: var(--spacing-xs);
+    position: relative;
+    z-index: 2;
+  }
+
+
 
   .file-input-prompt {
       display: flex; flex-direction: column; align-items: center;;

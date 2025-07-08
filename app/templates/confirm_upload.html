@@ -1,100 +1,128 @@
 {% extends "base.html" %}
+
 {% block title %}{% if edit_mode %}Éditer l'image{% else %}Confirmer l'envoi{% endif %}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/confirm_upload.css') }}">
+{% endblock %}
+
 {% block content %}
 
-<h2 class="mb-3">{% if edit_mode %}Modifier les métadonnées{% else %}Vérifiez l'image et ses données{% endif %}</h2>
-
-<img src="{{ url_for('static', filename='uploads/' + filename) }}" class="img-fluid mb-3" style="max-height: 300px;" alt="Image uploadée">
-
-<form method="POST" action="{{ url_for('main.update_image') if edit_mode else url_for('main.confirm_upload') }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  {% if edit_mode %}
-    <input type="hidden" name="image_id" value="{{ image_id }}">
-  {% else %}
-    <input type="hidden" name="filename" value="{{ filename }}">
-  {% endif %}
-  <input type="hidden" name="label_manual"     id="label_manual">
-<input type="hidden" name="timestamp_manual" id="timestamp_manual">
-<input type="hidden" name="location_manual"  id="location_manual">
-
-  {# ---------------------- Label ---------------------- #}
-  <div class="mb-3">
-    <label for="label" class="form-label">État de la poubelle</label>
-    <div class="d-flex align-items-stretch gap-2">
-      <select name="label" id="label" class="form-select flex-grow-1">
-        <option value="full">Pleine</option>
-        <option value="empty">Vide</option>
-      </select>
-
-      <span id="label-badge" class="btn fw-bold text-white text-center px-0 badge-auto" style="width:100px;height:38px;">
-        {{ 'Original' if edit_mode else 'Auto' }}
-      </span>
-
-      <button type="button" class="btn btn-outline-secondary" id="label-reset" disabled>Réinitialiser</button>
+<!-- Environmental Header -->
+<div class="header confirm-upload-header confirm-upload-fade-in">
+    <div class="row align-items-center justify-content-center text-center">
+        <div class="col-md-8">
+            <h1 class="confirm-upload-title">
+                <div class="confirm-upload-icon">
+                    <i class="bi bi-check-circle-fill"></i>
+                </div>
+                {% if edit_mode %}Modifier votre Contribution{% else %}Finaliser votre Contribution{% endif %}
+            </h1>
+            <p class="confirm-upload-subtitle">
+                {% if edit_mode %}
+                Mettez à jour les données pour améliorer la surveillance environnementale
+                {% else %}
+                Vérifiez et validez les informations détectées automatiquement
+                {% endif %}
+            </p>
+        </div>
     </div>
-  </div>
+</div>
 
-  {# ------------------ Timestamp ---------------------- #}
-  <div class="mb-3">
-    <label for="timestamp" class="form-label">Date/Heure</label>
-    <div class="d-flex align-items-stretch gap-2">
-      <input type="datetime-local" name="timestamp" id="timestamp" class="form-control flex-grow-1">
+<!-- Main Content Container -->
+<div class="confirm-upload-container confirm-upload-slide-up">
+    <h2 class="confirm-upload-page-title">
+        {% if edit_mode %}Modifier les métadonnées{% else %}Vérifiez l'image et ses données{% endif %}
+    </h2>
 
-      <span id="timestamp-badge" class="btn fw-bold text-white text-center px-0 badge-auto" style="width:100px;height:38px;">
-        {{ 'Original' if edit_mode else 'Auto' }}
-      </span>
-
-      <button type="button" class="btn btn-outline-secondary" id="timestamp-reset" disabled>Réinitialiser</button>
+    <!-- Image Preview -->
+    <div class="confirm-upload-image-preview">
+        <img src="{{ url_for('static', filename='uploads/' + filename) }}" 
+             class="confirm-upload-image" 
+             alt="Image uploadée">
     </div>
-    <div id="timestamp-warning" class="form-text text-warning d-none">Aucun horodatage détecté automatiquement&nbsp;: veuillez saisir une valeur.</div>
-  </div>
 
-  {# ------------------ Location ----------------------- #}
-  <div class="mb-3">
-    <label for="location" class="form-label">Localisation</label>
-    <div class="d-flex align-items-stretch gap-2">
-      <input type="text" name="location" id="location" class="form-control flex-grow-1" placeholder="Adresse ou coordonnées GPS">
+    <!-- Form -->
+    <form method="POST" action="{{ url_for('main.update_image') if edit_mode else url_for('main.confirm_upload') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if edit_mode %}
+            <input type="hidden" name="image_id" value="{{ image_id }}">
+        {% else %}
+            <input type="hidden" name="filename" value="{{ filename }}">
+        {% endif %}
+        <input type="hidden" name="label_manual" id="label_manual">
+        <input type="hidden" name="timestamp_manual" id="timestamp_manual">
+        <input type="hidden" name="location_manual" id="location_manual">
 
-      <span id="location-badge" class="btn fw-bold text-white text-center px-0 badge-auto" style="width:100px;height:38px;">
-        {{ 'Original' if edit_mode else 'Auto' }}
-      </span>
+        <!-- Label Field -->
+        <div class="confirm-upload-form-group">
+            <label for="label" class="confirm-upload-form-label">
+                <i class="bi bi-trash"></i>État de la poubelle
+            </label>
+            <div class="confirm-upload-input-row">
+                <select name="label" id="label" class="confirm-upload-form-control">
+                    <option value="full">Pleine</option>
+                    <option value="empty">Vide</option>
+                </select>
+                <span id="label-badge" class="confirm-upload-badge badge-auto">
+                    {{ 'Original' if edit_mode else 'Auto' }}
+                </span>
+                <button type="button" class="confirm-upload-reset-btn" id="label-reset" disabled>
+                    Réinitialiser
+                </button>
+            </div>
+        </div>
 
-      <button type="button" class="btn btn-outline-secondary" id="location-reset" disabled>Réinitialiser</button>
-    </div>
-    <div id="location-warning" class="form-text text-warning d-none">Aucune localisation détectée automatiquement&nbsp;: veuillez saisir une valeur.</div>
-  </div>
+        <!-- Timestamp Field -->
+        <div class="confirm-upload-form-group">
+            <label for="timestamp" class="confirm-upload-form-label">
+                <i class="bi bi-clock"></i>Date/Heure
+            </label>
+            <div class="confirm-upload-input-row">
+                <input type="datetime-local" name="timestamp" id="timestamp" class="confirm-upload-form-control">
+                <span id="timestamp-badge" class="confirm-upload-badge badge-auto">
+                    {{ 'Original' if edit_mode else 'Auto' }}
+                </span>
+                <button type="button" class="confirm-upload-reset-btn" id="timestamp-reset" disabled>
+                    Réinitialiser
+                </button>
+            </div>
+            <div id="timestamp-warning" class="confirm-upload-warning d-none">
+                Aucun horodatage détecté automatiquement : veuillez saisir une valeur.
+            </div>
+        </div>
 
-  <button type="submit" class="btn btn-success">{% if edit_mode %}Enregistrer{% else %}Valider l'image{% endif %}</button>
-  <a href="{{ url_for('main.upload') }}" class="btn btn-link">Annuler</a>
-</form>
+        <!-- Location Field -->
+        <div class="confirm-upload-form-group">
+            <label for="location" class="confirm-upload-form-label">
+                <i class="bi bi-geo-alt"></i>Localisation
+            </label>
+            <div class="confirm-upload-input-row">
+                <input type="text" name="location" id="location" class="confirm-upload-form-control" 
+                       placeholder="Adresse ou coordonnées GPS">
+                <span id="location-badge" class="confirm-upload-badge badge-auto">
+                    {{ 'Original' if edit_mode else 'Auto' }}
+                </span>
+                <button type="button" class="confirm-upload-reset-btn" id="location-reset" disabled>
+                    Réinitialiser
+                </button>
+            </div>
+            <div id="location-warning" class="confirm-upload-warning d-none">
+                Aucune localisation détectée automatiquement : veuillez saisir une valeur.
+            </div>
+        </div>
 
-<style>
-  .badge-auto{
-    background-color:#0dcaf0;
-    pointer-events:none;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-family:system-ui,sans-serif;
-    padding:0;
-    line-height:1;
-  }
-  /* Styles pour la boîte de suggestions d'adresse */
-  #suggestions{
-    border:1px solid #ccc;
-    max-width:300px;
-    position:absolute;
-    background-color:#fff;
-    z-index:1000;
-  }
-  #suggestions div{
-    padding:8px;
-    cursor:pointer;
-  }
-  #suggestions div:hover{
-    background-color:#f0f0f0;
-  }
-</style>
+        <!-- Action Buttons -->
+        <div class="confirm-upload-actions">
+            <button type="submit" class="confirm-upload-btn-submit">
+                {% if edit_mode %}Enregistrer{% else %}Valider l'image{% endif %}
+            </button>
+            <a href="{{ url_for('main.upload') }}" class="confirm-upload-btn-cancel">
+                Annuler
+            </a>
+        </div>
+    </form>
+</div>
 
 <script>
 // Valeurs détectées ou existantes injectées côté serveur
@@ -107,7 +135,6 @@ const baseBadgeText  = "{{ 'Original' if edit_mode else 'Auto' }}";
 const labelSelect        = document.getElementById('label');
 const timestampInput     = document.getElementById('timestamp');
 const locationInput      = document.getElementById('location');
-const isManualField      = document.getElementById('is_manual');
 
 const labelResetBtn      = document.getElementById('label-reset');
 const timestampResetBtn  = document.getElementById('timestamp-reset');
@@ -132,17 +159,22 @@ function updateUI(){
   timestampManualField.value = timestampChanged;
   locationManualField.value  = locationChanged;
 
-  const manualColor = '#6c757d';
-  const autoColor   = '#0dcaf0';
-
+  // Update badge text and classes
   labelBadge.textContent      = labelChanged     ? 'Modifié' : baseBadgeText;
-  labelBadge.style.backgroundColor = labelChanged ? manualColor : autoColor;
+  labelBadge.className        = labelChanged     ? 'confirm-upload-badge badge-manual' : 'confirm-upload-badge badge-auto';
 
   timestampBadge.textContent  = timestampChanged ? 'Modifié' : baseBadgeText;
-  timestampBadge.style.backgroundColor = timestampChanged ? manualColor : autoColor;
+  timestampBadge.className    = timestampChanged ? 'confirm-upload-badge badge-manual' : 'confirm-upload-badge badge-auto';
 
   locationBadge.textContent   = locationChanged  ? 'Modifié' : baseBadgeText;
-  locationBadge.style.backgroundColor = locationChanged ? manualColor : autoColor;
+  locationBadge.className     = locationChanged  ? 'confirm-upload-badge badge-manual' : 'confirm-upload-badge badge-auto';
+
+  // Handle "Original" mode
+  if (baseBadgeText === 'Original') {
+    if (!labelChanged) labelBadge.className = 'confirm-upload-badge badge-original';
+    if (!timestampChanged) timestampBadge.className = 'confirm-upload-badge badge-original';
+    if (!locationChanged) locationBadge.className = 'confirm-upload-badge badge-original';
+  }
 
   labelResetBtn.disabled      = !labelChanged;
   timestampResetBtn.disabled  = !timestampChanged;
@@ -176,6 +208,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   /* --------- Autocomplétion d'adresse --------- */
   const suggestionsBox = document.createElement('div');
+  suggestionsBox.className = 'confirm-upload-suggestions';
   suggestionsBox.id = 'suggestions';
   document.body.appendChild(suggestionsBox);
 

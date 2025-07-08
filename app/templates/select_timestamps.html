@@ -1,34 +1,73 @@
 {% extends "base.html" %}
+
 {% block title %}Choisir les instants{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/select_timestamps.css') }}">
+{% endblock %}
+
 {% block content %}
 
-<h2>Sélectionnez les instants à capturer</h2>
-
-<!-- Lecteur vidéo -->
-<video id="vid" controls style="max-width: 100%; border:1px solid #ccc;">
-  <source src="{{ url_for('static', filename='uploads/' + video_filename) }}" type="video/mp4">
-  Votre navigateur ne supporte pas la vidéo HTML5.
-</video>
-
-<!-- Bouton pour ajouter un timestamp -->
-<div class="my-3">
-  <button id="add-btn" class="btn btn-primary">
-    📸 Ajouter l'instant courant
-  </button>
+<!-- Environmental Header -->
+<div class="header select-timestamps-header select-timestamps-fade-in">
+    <div class="row align-items-center justify-content-center text-center">
+        <div class="col-md-8">
+            <h1 class="select-timestamps-title">
+                <div class="select-timestamps-icon">
+                    <i class="bi bi-play-circle-fill"></i>
+                </div>
+                Extraction d'Images Vidéo
+            </h1>
+            <p class="select-timestamps-subtitle">
+                Sélectionnez les instants clés pour créer des captures d'écran de surveillance environnementale
+            </p>
+        </div>
+    </div>
 </div>
 
-<!-- Liste des temps sélectionnés -->
-<ul id="ts-list" class="list-group mb-3"></ul>
+<h2 class="select-timestamps-page-title">Sélectionnez les instants à capturer</h2>
 
-<form id="confirm-form" method="POST"
-      action="{{ url_for('main.extract_from_video', video=video_filename) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <!-- les <input type=hidden name="timestamps"> seront injectés ici -->
-  <button type="submit" class="btn btn-success" disabled id="confirm-btn">
-    Extraire les images sélectionnées
-  </button>
-  <a href="{{ url_for('main.upload') }}" class="btn btn-link">Annuler</a>
-</form>
+<!-- Video Player Container -->
+<div class="select-timestamps-video-container select-timestamps-slide-up">
+    <video id="vid" controls class="select-timestamps-video">
+        <source src="{{ url_for('static', filename='uploads/' + video_filename) }}" type="video/mp4">
+        Votre navigateur ne supporte pas la vidéo HTML5.
+    </video>
+</div>
+
+<!-- Add Timestamp Section -->
+<div class="select-timestamps-add-section select-timestamps-slide-up">
+    <button id="add-btn" class="select-timestamps-add-btn">
+        📸 Ajouter l'instant courant
+    </button>
+</div>
+
+<!-- Timestamps List Container -->
+<div class="select-timestamps-list-container select-timestamps-slide-up">
+    <h3 class="select-timestamps-list-title">
+        <i class="bi bi-list-ul"></i>Instants sélectionnés
+    </h3>
+    <ul id="ts-list" class="select-timestamps-list">
+        <div class="select-timestamps-empty" id="empty-state">
+            Aucun instant sélectionné. Utilisez le bouton ci-dessus pour ajouter des timestamps.
+        </div>
+    </ul>
+</div>
+
+<!-- Submit Section -->
+<div class="select-timestamps-submit-section select-timestamps-slide-up">
+    <form id="confirm-form" method="POST" action="{{ url_for('main.extract_from_video', video=video_filename) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <!-- les <input type=hidden name="timestamps"> seront injectés ici -->
+        <button type="submit" class="select-timestamps-submit-btn" disabled id="confirm-btn">
+            <i class="bi bi-scissors me-2"></i>
+            Extraire les images sélectionnées
+        </button>
+        <a href="{{ url_for('main.upload') }}" class="select-timestamps-cancel-btn">
+            Annuler
+        </a>
+    </form>
+</div>
 
 <script>
 const vid = document.getElementById("vid");
@@ -36,6 +75,7 @@ const addBtn = document.getElementById("add-btn");
 const tsList = document.getElementById("ts-list");
 const form = document.getElementById("confirm-form");
 const confirmBtn = document.getElementById("confirm-btn");
+const emptyState = document.getElementById("empty-state");
 
 function formatTime(sec) {
   return new Date(sec * 1000).toISOString().substr(11, 8);
@@ -45,14 +85,22 @@ addBtn.addEventListener("click", e => {
   e.preventDefault();
   const t = vid.currentTime;                       // secondes flottantes
   const li = document.createElement("li");
-  li.className = "list-group-item d-flex justify-content-between align-items-center";
-  li.textContent = formatTime(t);
+  li.className = "select-timestamps-list-item select-timestamps-item-animate";
+  
+  // Create time display
+  const timeSpan = document.createElement("span");
+  timeSpan.className = "select-timestamps-time";
+  timeSpan.textContent = formatTime(t);
+  li.appendChild(timeSpan);
 
   // bouton supprimer
   const del = document.createElement("button");
-  del.className = "btn btn-sm btn-outline-danger";
+  del.className = "select-timestamps-delete-btn";
   del.textContent = "×";
-  del.onclick = () => { li.remove(); refreshForm(); };
+  del.onclick = () => { 
+    li.remove(); 
+    refreshForm(); 
+  };
   li.appendChild(del);
 
   tsList.appendChild(li);
@@ -63,19 +111,28 @@ function refreshForm() {
   // vider les anciens inputs
   form.querySelectorAll("input[name='timestamps']").forEach(el => el.remove());
 
+  // Show/hide empty state
+  const hasItems = tsList.children.length > 1; // > 1 because empty state is also a child
+  emptyState.style.display = hasItems ? 'none' : 'block';
+
   // recréer les inputs dans l'ordre
   [...tsList.children].forEach(li => {
-    const seconds = li.firstChild.textContent
-                      .split(':').reduce((p,c)=>60*p+ +c, 0); // HH:MM:SS -> s
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = "timestamps";
-    input.value = seconds;      // on enverra les secondes au backend
-    form.appendChild(input);
+    if (li.classList.contains('select-timestamps-list-item')) {
+      const timeText = li.querySelector('.select-timestamps-time').textContent;
+      const seconds = timeText.split(':').reduce((p,c)=>60*p+ +c, 0); // HH:MM:SS -> s
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "timestamps";
+      input.value = seconds;      // on enverra les secondes au backend
+      form.appendChild(input);
+    }
   });
 
-  confirmBtn.disabled = tsList.children.length === 0;
+  confirmBtn.disabled = !hasItems;
 }
+
+// Initialize empty state
+refreshForm();
 </script>
 
 {% endblock %}
