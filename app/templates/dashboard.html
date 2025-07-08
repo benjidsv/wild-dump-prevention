@@ -2,271 +2,29 @@
 {% block title %}Dashboard - Wild Dump Prevention{% endblock %}
 
 {% block extra_head %}
-<style>
-  /* Dashboard Specific Styles */
-  .dashboard-header {
-    background: linear-gradient(135deg, rgba(30, 58, 95, 0.05) 0%, rgba(74, 155, 142, 0.05) 100%);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-xl);
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: var(--spacing-lg);
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .stat-card {
-    background: var(--white);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
-    box-shadow: var(--shadow-md);
-    transition: var(--transition-base);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-  }
-
-  .stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(135deg, var(--forest-green) 0%, var(--teal-accent) 100%);
-  }
-
-  .stat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    margin-bottom: var(--spacing-md);
-  }
-
-  .stat-icon.green {
-    background: linear-gradient(135deg, rgba(124, 179, 66, 0.1) 0%, rgba(124, 179, 66, 0.2) 100%);
-    color: var(--forest-green);
-  }
-
-  .stat-icon.red {
-    background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(220, 53, 69, 0.2) 100%);
-    color: var(--color-danger);
-  }
-
-  .stat-icon.blue {
-    background: linear-gradient(135deg, rgba(74, 155, 142, 0.1) 0%, rgba(74, 155, 142, 0.2) 100%);
-    color: var(--teal-accent);
-  }
-
-  .stat-value {
-    font-size: var(--font-size-3xl);
-    font-weight: 700;
-    color: var(--navy-primary);
-    line-height: 1;
-    margin-bottom: var(--spacing-xs);
-  }
-
-  .stat-label {
-    color: var(--charcoal);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-  }
-
-  .stat-trend {
-    position: absolute;
-    top: var(--spacing-md);
-    right: var(--spacing-md);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-  }
-
-  .trend-up {
-    color: var(--forest-green);
-  }
-
-  .trend-down {
-    color: var(--color-danger);
-  }
-
-  /* Filter Section */
-  .filter-card {
-    background: var(--white);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
-    box-shadow: var(--shadow-sm);
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .filter-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: var(--spacing-lg);
-  }
-
-  .filter-header h3 {
-    margin: 0;
-    font-size: var(--font-size-xl);
-    color: var(--navy-primary);
-  }
-
-  .filter-header i {
-    margin-right: var(--spacing-sm);
-    color: var(--teal-accent);
-  }
-
-  /* Map Section */
-  .map-container {
-    background: var(--white);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
-    box-shadow: var(--shadow-md);
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .map-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--spacing-lg);
-  }
-
-  #map {
-    height: 600px;
-    border-radius: var(--radius-md);
-    position: relative;
-    background: var(--light-gray);
-  }
-
-  .map-loading {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    z-index: 1000;
-  }
-
-  /* Chart Section */
-  .charts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: var(--spacing-lg);
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .chart-card {
-    background: var(--white);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
-    box-shadow: var(--shadow-md);
-    max-height: 400px;
-    padding-bottom: 70px;
-  }
-
-  .chart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--spacing-lg);
-  }
-
-  .chart-header h3 {
-    margin: 0;
-    font-size: var(--font-size-xl);
-    color: var(--navy-primary);
-  }
-
-  /* Custom Legend */
-  .custom-legend {
-    background: rgba(255, 255, 255, 0.95);
-    padding: var(--spacing-md);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
-    backdrop-filter: blur(10px);
-  }
-
-  .legend-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: var(--spacing-sm);
-  }
-
-  .legend-color {
-    width: 40px;
-    height: 8px;
-    border-radius: var(--radius-sm);
-    margin-right: var(--spacing-sm);
-  }
-
-  /* Cluster Styles */
-  .cluster-bubble {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    border: 3px solid #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    color: #fff;
-    box-shadow: var(--shadow-md);
-    font-size: var(--font-size-md);
-    position: relative;
-  }
-
-  .cluster-bubble::after {
-    content: '';
-    position: absolute;
-    inset: -6px;
-    border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-  }
-
-  /* Responsive */
-  @media (max-width: 768px) {
-    .dashboard-header {
-      padding: var(--spacing-lg);
-    }
-
-    .stats-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .charts-grid {
-      grid-template-columns: 1fr;
-    }
-
-    #map {
-      height: 400px;
-    }
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 {% endblock %}
 
 {% block content %}
 
 <!-- Dashboard Header -->
-<div class="dashboard-header fade-in">
-  <h1 class="display-5 fw-bold text-primary mb-2">Tableau de Bord Environnemental</h1>
-  <p class="text-muted mb-0">
-    Suivi des déchets en temps réel pour {{ locations_coords|length|default(0) }} sites surveillés
-  </p>
+
+<div class="header dashboard-header">
+    <div class="row align-items-center justify-content-between">
+        <div class="col-md-auto">
+            <h1 class="page-title text-white">
+                <i class="bi bi-images me-3"></i>Tableau de Bord
+            </h1>
+            <p class="page-subtitle">
+                Visualisez les données collectées à l'aide de vos images
+            </p>
+        </div>
+    </div>
 </div>
 
 <!-- Statistics Cards -->
 <div class="stats-grid fade-in">
-  <div class="stat-card hover-lift">
+  <div class="card stat-card hover-lift">
     <div class="stat-icon green">
       <i class="bi bi-check-circle-fill"></i>
     </div>
@@ -274,7 +32,7 @@
     <div class="stat-label">Poubelles Vides</div>
   </div>
 
-  <div class="stat-card hover-lift">
+  <div class="card stat-card hover-lift">
     <div class="stat-icon red">
       <i class="bi bi-exclamation-triangle-fill"></i>
     </div>
@@ -282,7 +40,7 @@
     <div class="stat-label">Poubelles Remplies</div>
   </div>
 
-  <div class="stat-card hover-lift">
+  <div class="card stat-card hover-lift">
     <div class="stat-icon blue">
       <i class="bi bi-geo-alt-fill"></i>
     </div>
@@ -290,7 +48,7 @@
     <div class="stat-label">Sites Surveillés</div>
   </div>
 
-  <div class="stat-card hover-lift">
+  <div class="card stat-card hover-lift">
     <div class="stat-icon green">
       <i class="bi bi-percent"></i>
     </div>
@@ -306,7 +64,7 @@
 </div>
 
 <!-- Filter Section -->
-<div class="filter-card fade-in">
+<div class="card filter-card fade-in">
   <div class="filter-header">
     <h3><i class="bi bi-funnel"></i>Filtrer les Données</h3>
   </div>
@@ -331,7 +89,7 @@
 </div>
 
 <!-- Map Section -->
-<div class="map-container fade-in">
+<div class="card map-container fade-in">
   <div class="map-header">
     <h3><i class="bi bi-map" style="color: var(--teal-accent)"></i> Carte des Déchets</h3>
     <div class="btn-group" role="group">
@@ -356,7 +114,7 @@
 <!-- Charts Grid -->
 <div class="charts-grid fade-in">
   <!-- Pie Chart -->
-  <div class="chart-card hover-lift">
+  <div class="card chart-card hover-lift">
     <div class="chart-header">
       <h3>Distribution des Poubelles</h3>
       <span class="badge bg-secondary">Temps-réel</span>
@@ -365,7 +123,7 @@
   </div>
 
   <!-- Time Series Chart -->
-  <div class="chart-card hover-lift">
+  <div class="card chart-card hover-lift">
     <div class="chart-header">
       <h3>Collection Trends</h3>
       <span class="badge bg-secondary">Last 7 days</span>
