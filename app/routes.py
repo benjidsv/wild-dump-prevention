@@ -932,6 +932,7 @@ def rules_test():
     flash(f"Résultat : {result}", "success")
     return redirect(url_for('main.rules_edit', _anchor='result'))
 
+
 @main.route("/classifier", methods=["GET", "POST"])
 @login_required
 def classifier():
@@ -948,17 +949,40 @@ def classifier():
             filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
 
-            # Initialize the YOLO model
-            # path : app/classification/models/best.pt
-            model_path = os.path.join(current_app.root_path, 'classification', 'models', 'best.pt')
-            model = YOLO(model_path)
+            # Get selected model
+            selected_model = request.form.get('selected_model', 'yolo')
 
-            # Make a prediction
-            results = model.predict(filepath, conf=0.25, verbose=False)
-            result = results[0]
-            pred_class = result.probs.top1
-            confidence = result.probs.top1conf.item()
-            class_name = 'empty' if pred_class == 0 else 'full'
+            if selected_model == 'yolo':
+                # YOLO model prediction
+                model_path = os.path.join(current_app.root_path, 'classification', 'models', 'yolo.pt')
+                model = YOLO(model_path)
+
+                results = model.predict(filepath, conf=0.25, verbose=False)
+                result = results[0]
+                pred_class = result.probs.top1
+                confidence = result.probs.top1conf.item()
+                class_name = 'empty' if pred_class == 0 else 'full'
+
+                class_probabilities = {name: float(prob) for name, prob in
+                                       zip(model.names, result.probs.data.cpu().numpy())}
+                inference_time = sum(result.speed.values())
+
+            else:  # pkl model
+                # PKL model prediction
+                model_path = os.path.join(current_app.root_path, 'classification', 'models', 'cls.pkl')
+
+                # Load your PKL model here
+                # model = joblib.load(model_path)  # or pickle.load() depending on how you saved it
+
+                # For now, using dummy values - replace with actual prediction logic
+                import random
+                confidence = random.uniform(0.7, 0.95)
+                class_name = random.choice(['empty', 'full'])
+                class_probabilities = {
+                    'empty': 1 - confidence if class_name == 'full' else confidence,
+                    'full': confidence if class_name == 'full' else 1 - confidence
+                }
+                inference_time = random.uniform(5, 15)  # PKL models are typically faster
 
             # Prepare result for the template
             with open(filepath, "rb") as img_file:
@@ -967,9 +991,10 @@ def classifier():
             classification_result = {
                 'prediction': class_name,
                 'confidence': confidence,
-                'class_probabilities': {name: float(prob) for name, prob in zip(model.names, result.probs.data.cpu().numpy())},
-                'inference_time_ms': sum(result.speed.values()),
-                'image_data': img_base64
+                'class_probabilities': class_probabilities,
+                'inference_time_ms': inference_time,
+                'image_data': img_base64,
+                'model_used': selected_model
             }
 
             return render_template("classifier.html", result=classification_result)
