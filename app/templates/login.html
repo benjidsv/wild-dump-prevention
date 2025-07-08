@@ -2,33 +2,69 @@
 
 {% block title %}Connexion - WDP{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
 {% block content %}
-<section class="d-flex justify-content-center align-items-center" style="min-height:70vh;">
-    <div class="card shadow-lg border-0 w-100" style="max-width: 560px;">
-        <div class="card-body p-5">
-            <h2 class="text-center mb-4 fw-bold">Connexion</h2>
+
+<!-- Environmental Header -->
+<div class="header login-header login-fade-in">
+    <div class="row align-items-center justify-content-center text-center">
+        <div class="col-md-8">
+            <h1 class="login-title login-welcome">
+                <div class="login-icon">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                </div>
+                Bienvenue de Retour
+            </h1>
+            <p class="login-subtitle">
+                Continuez votre mission de protection environnementale avec Wild Dump Prevention
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Login Form Container -->
+<section class="login-container">
+    <div class="login-card login-slide-up">
+        <div class="login-card-body">
+            <h2 class="login-form-title">Connexion</h2>
+
+            {% if error %}
+                <div class="login-alert login-alert-danger">{{ error }}</div>
+            {% endif %}
+
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                <div class="form-floating mb-3">
-                    <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com" value="{{ email|default('') }}" required>
-                    <label for="email"><i class="bi bi-envelope me-2"></i>Adresse mail</label>
+                <div class="login-form-group">
+                    <label for="email" class="login-form-label">
+                        <i class="bi bi-envelope"></i>Adresse email
+                    </label>
+                    <input type="email" class="login-form-control" id="email" name="email" placeholder="votre@email.com" value="{{ email|default('') }}" required>
                 </div>
 
-                <div class="form-floating mb-4">
-                    <input type="password" class="form-control" id="password" name="password" placeholder="Mot de passe" required>
-                    <label for="password"><i class="bi bi-lock me-2"></i>Mot de passe</label>
+                <div class="login-form-group">
+                    <label for="password" class="login-form-label">
+                        <i class="bi bi-lock"></i>Mot de passe
+                    </label>
+                    <input type="password" class="login-form-control" id="password" name="password" placeholder="Entrez votre mot de passe" required>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100 py-2">Se connecter</button>
+                <button type="submit" class="btn login-btn-submit w-100">
+                    Se connecter
+                </button>
             </form>
 
-            <div class="mt-4 text-center">
+            <div class="login-register-link">
                 <small class="text-muted">
-                    Pas encore de compte ? <a href="{{ url_for('main.register') }}">S'inscrire</a>
+                    Pas encore membre de la communauté ? 
+                    <a href="{{ url_for('main.register') }}">S'inscrire</a>
                 </small>
             </div>
         </div>
     </div>
 </section>
+
 {% endblock %} 

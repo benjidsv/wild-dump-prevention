@@ -1,120 +1,129 @@
 {% extends "base.html" %}
 {% block title %}Confirmation Upload Multiple{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/confirm_upload_multiple.css') }}">
+{% endblock %}
+
 {% block content %}
 
-<h2 class="mb-4">Confirmer les images uploadées</h2>
-
-<form method="POST" action="{{ url_for('main.confirm_upload_multiple') }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  {% for filename in filenames %}
-  <div class="card mb-3 upload-card"
-       data-idx="{{ loop.index0 }}"
-       data-auto-label="{{ auto_labels[loop.index0] }}"
-       data-auto-timestamp="{{ auto_timestamps[loop.index0] }}"
-       data-auto-location="{{ auto_locations[loop.index0] }}">
-
-    <div class="card-body">
-      <h5 class="card-title">{{ filename }}</h5>
-
-      <img src="{{ url_for('static', filename='uploads/' + filename) }}"
-           class="img-fluid mb-3" style="max-height:300px;" alt="Image uploadée">
-
-      <!-- ---------- hidden inputs ---------- -->
-      <input type="hidden" name="filenames" value="{{ filename }}">
-
-      <input type="hidden" name="label_manual_{{ loop.index0 }}"     id="label_manual_{{ loop.index0 }}">
-      <input type="hidden" name="timestamp_manual_{{ loop.index0 }}" id="timestamp_manual_{{ loop.index0 }}">
-      <input type="hidden" name="location_manual_{{ loop.index0 }}"  id="location_manual_{{ loop.index0 }}">
-      <input type="hidden" name="is_manual_{{ loop.index0 }}"        id="is_manual_{{ loop.index0 }}">
-      <input type="hidden" name="features_{{ loop.index0 }}" id="features_{{ loop.index0 }" value="{{ feats[loop.index0] | tojson | safe }}">
-
-      <!-- ---------- Label ---------- -->
-      <div class="mb-3">
-        <label class="form-label">État de la poubelle</label>
-        <div class="d-flex align-items-stretch gap-2">
-          <select name="label_{{ loop.index0 }}" id="label_{{ loop.index0 }}" class="form-select flex-grow-1">
-            <option value="full">Pleine</option>
-            <option value="empty">Vide</option>
-          </select>
-
-          <span id="label-badge_{{ loop.index0 }}"  class="badge-auto">Auto</span>
-
-          <button type="button" class="btn btn-outline-secondary"
-                  id="label-reset_{{ loop.index0 }}" disabled>Réinitialiser</button>
+<!-- Environmental Header -->
+<div class="header confirm-multiple-header confirm-multiple-fade-in">
+    <div class="row align-items-center justify-content-center text-center">
+        <div class="col-md-8">
+            <h1 class="confirm-multiple-title">
+                <div class="confirm-multiple-icon">
+                    <i class="bi bi-images"></i>
+                </div>
+                Finaliser vos Contributions
+            </h1>
+            <p class="confirm-multiple-subtitle">
+                Vérifiez et validez les informations détectées pour chaque image de surveillance environnementale
+            </p>
+            <div class="confirm-multiple-stats">
+                <i class="bi bi-camera-fill"></i>
+                {{ filenames|length }} image{{ 's' if filenames|length > 1 else '' }} à traiter
+            </div>
         </div>
-      </div>
-
-      <!-- ---------- Timestamp ---------- -->
-      <div class="mb-3">
-        <label class="form-label" for="timestamp_{{ loop.index0 }}">Date/Heure</label>
-        <div class="d-flex align-items-stretch gap-2">
-          <input type="datetime-local" name="timestamp_{{ loop.index0 }}"
-                 id="timestamp_{{ loop.index0 }}" class="form-control flex-grow-1">
-
-          <span id="timestamp-badge_{{ loop.index0 }}" class="badge-auto">Auto</span>
-
-          <button type="button" class="btn btn-outline-secondary"
-                  id="timestamp-reset_{{ loop.index0 }}" disabled>Réinitialiser</button>
-        </div>
-
-        <div id="timestamp-warning_{{ loop.index0 }}"
-             class="form-text text-warning d-none">
-          <i class="bi bi-exclamation-triangle-fill me-1"></i>
-          Aucun horodatage détecté automatiquement&nbsp;: veuillez saisir une valeur.
-        </div>
-      </div>
-
-      <!-- ---------- Location ---------- -->
-      <div class="mb-3">
-        <label class="form-label" for="location_{{ loop.index0 }}">Localisation</label>
-        <div class="d-flex align-items-stretch gap-2">
-          <input type="text" name="location_{{ loop.index0 }}"
-                 id="location_{{ loop.index0 }}" class="form-control flex-grow-1"
-                 placeholder="Adresse ou coordonnées GPS">
-
-          <span id="location-badge_{{ loop.index0 }}" class="badge-auto">Auto</span>
-
-          <button type="button" class="btn btn-outline-secondary"
-                  id="location-reset_{{ loop.index0 }}" disabled>Réinitialiser</button>
-        </div>
-
-        <div id="location-warning_{{ loop.index0 }}"
-             class="form-text text-warning d-none">
-          <i class="bi bi-exclamation-triangle-fill me-1"></i>
-          Aucune localisation détectée automatiquement&nbsp;: veuillez saisir une valeur.
-        </div>
-      </div>
-
     </div>
-  </div>
-  {% endfor %}
+</div>
 
-  <div class="text-end">
-    <button type="submit" class="btn btn-success">Valider</button>
-  </div>
+<h2 class="confirm-multiple-page-title">Confirmer les images uploadées</h2>
+
+<form method="POST" action="{{ url_for('main.confirm_upload_multiple') }}" class="confirm-multiple-slide-up">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    
+    {% for filename in filenames %}
+    <div class="upload-card upload-card-animate"
+         data-idx="{{ loop.index0 }}"
+         data-auto-label="{{ auto_labels[loop.index0] }}"
+         data-auto-timestamp="{{ auto_timestamps[loop.index0] }}"
+         data-auto-location="{{ auto_locations[loop.index0] }}">
+
+        <div class="card-body">
+            <h5 class="card-title">{{ filename }}</h5>
+
+            <!-- Image Preview -->
+            <div class="upload-card-image-preview">
+                <img src="{{ url_for('static', filename='uploads/' + filename) }}"
+                     class="upload-card-image" alt="Image uploadée">
+            </div>
+
+            <!-- Hidden inputs -->
+            <input type="hidden" name="filenames" value="{{ filename }}">
+            <input type="hidden" name="label_manual_{{ loop.index0 }}" id="label_manual_{{ loop.index0 }}">
+            <input type="hidden" name="timestamp_manual_{{ loop.index0 }}" id="timestamp_manual_{{ loop.index0 }}">
+            <input type="hidden" name="location_manual_{{ loop.index0 }}" id="location_manual_{{ loop.index0 }}">
+            <input type="hidden" name="is_manual_{{ loop.index0 }}" id="is_manual_{{ loop.index0 }}">
+            <input type="hidden" name="features_{{ loop.index0 }}" id="features_{{ loop.index0 }" value="{{ feats[loop.index0] | tojson | safe }}">
+
+
+            <!-- Label Field -->
+            <div class="upload-card-form-group">
+                <label class="upload-card-form-label">
+                    <i class="bi bi-trash"></i>État de la poubelle
+                </label>
+                <div class="upload-card-input-row">
+                    <select name="label_{{ loop.index0 }}" id="label_{{ loop.index0 }}" class="upload-card-form-control">
+                        <option value="full">Pleine</option>
+                        <option value="empty">Vide</option>
+                    </select>
+                    <span id="label-badge_{{ loop.index0 }}" class="upload-card-badge badge-auto">Auto</span>
+                    <button type="button" class="upload-card-reset-btn" id="label-reset_{{ loop.index0 }}" disabled>
+                        Réinitialiser
+                    </button>
+                </div>
+            </div>
+
+            <!-- Timestamp Field -->
+            <div class="upload-card-form-group">
+                <label class="upload-card-form-label" for="timestamp_{{ loop.index0 }}">
+                    <i class="bi bi-clock"></i>Date/Heure
+                </label>
+                <div class="upload-card-input-row">
+                    <input type="datetime-local" name="timestamp_{{ loop.index0 }}" 
+                           id="timestamp_{{ loop.index0 }}" class="upload-card-form-control">
+                    <span id="timestamp-badge_{{ loop.index0 }}" class="upload-card-badge badge-auto">Auto</span>
+                    <button type="button" class="upload-card-reset-btn" id="timestamp-reset_{{ loop.index0 }}" disabled>
+                        Réinitialiser
+                    </button>
+                </div>
+                <div id="timestamp-warning_{{ loop.index0 }}" class="upload-card-warning d-none">
+                    Aucun horodatage détecté automatiquement : veuillez saisir une valeur.
+                </div>
+            </div>
+
+            <!-- Location Field -->
+            <div class="upload-card-form-group">
+                <label class="upload-card-form-label" for="location_{{ loop.index0 }}">
+                    <i class="bi bi-geo-alt"></i>Localisation
+                </label>
+                <div class="upload-card-input-row">
+                    <input type="text" name="location_{{ loop.index0 }}" 
+                           id="location_{{ loop.index0 }}" class="upload-card-form-control"
+                           placeholder="Adresse ou coordonnées GPS">
+                    <span id="location-badge_{{ loop.index0 }}" class="upload-card-badge badge-auto">Auto</span>
+                    <button type="button" class="upload-card-reset-btn" id="location-reset_{{ loop.index0 }}" disabled>
+                        Réinitialiser
+                    </button>
+                </div>
+                <div id="location-warning_{{ loop.index0 }}" class="upload-card-warning d-none">
+                    Aucune localisation détectée automatiquement : veuillez saisir une valeur.
+                </div>
+            </div>
+
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Submit Section -->
+    <div class="confirm-multiple-submit-section">
+        <button type="submit" class="confirm-multiple-btn-submit">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            Valider toutes les images
+        </button>
+    </div>
 </form>
-
-<style>
-.badge-auto{
-  width:100px;height:38px;background:#0dcaf0;
-  display:flex;align-items:center;justify-content:center;
-  font-family:system-ui,sans-serif;font-weight:700;color:#fff;padding:0
-}
-#suggestions{
-  border:1px solid #ccc;
-  max-width:300px;
-  position:absolute;
-  background-color:#fff;
-  z-index:1000
-}
-#suggestions div{
-  padding:8px;
-  cursor:pointer
-}
-#suggestions div:hover{
-  background-color:#f0f0f0
-}
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -147,9 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const tsWarn          = card.querySelector(`#timestamp-warning_${idx}`);
     const locWarn         = card.querySelector(`#location-warning_${idx}`);
 
-    const autoC  = '#0dcaf0';
-    const manuC  = '#6c757d';
-
     function refresh() {
       const labelChanged = labelSelect.value !== autoLabel;
       const tsChanged    = tsInput.value     !== autoTimestamp;
@@ -161,15 +167,15 @@ document.addEventListener('DOMContentLoaded', () => {
       locManField.value   = locChanged   ? "true" : "false";
       isManField.value    = (labelChanged || tsChanged || locChanged) ? "true" : "false";
 
-      // --- badges -------------------------------------------------------
+      // --- badges with new class system ---------------------------------
       labelBadge.textContent = labelChanged ? 'Manuel' : 'Auto';
-      labelBadge.style.backgroundColor = labelChanged ? manuC : autoC;
+      labelBadge.className = labelChanged ? 'upload-card-badge badge-manual' : 'upload-card-badge badge-auto';
 
       tsBadge.textContent = tsChanged ? 'Manuel' : 'Auto';
-      tsBadge.style.backgroundColor   = tsChanged ? manuC : autoC;
+      tsBadge.className = tsChanged ? 'upload-card-badge badge-manual' : 'upload-card-badge badge-auto';
 
       locBadge.textContent = locChanged ? 'Manuel' : 'Auto';
-      locBadge.style.backgroundColor  = locChanged ? manuC : autoC;
+      locBadge.className = locChanged ? 'upload-card-badge badge-manual' : 'upload-card-badge badge-auto';
 
       // --- reset buttons & warnings -------------------------------------
       labelReset.disabled = !labelChanged;
@@ -198,6 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* --------- Autocomplétion d'adresse --------- */
   const suggestionsBox = document.createElement('div');
+  suggestionsBox.className = 'confirm-multiple-suggestions';
   suggestionsBox.id = 'suggestions';
   document.body.appendChild(suggestionsBox);
 

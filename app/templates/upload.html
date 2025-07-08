@@ -18,7 +18,7 @@
                 Gérez vos images de surveillance des déchets
             </p>
         </div>
-        <div class="col-md-auto" style="">
+        <div class="col-md-auto">
             <div class="upload-stats">
                 <span class="stat-item">
                     <i class="bi bi-camera me-1"></i>
@@ -66,8 +66,10 @@
                                 <span class="file-input-subtext">&nbspou glissez-déposez ici</span>
                             </div>
                             <div class="file-input-feedback" id="fileInputFeedback" style="display: none;">
-                                <i class="bi bi-check-circle-fill text-success me-2"></i>
-                                <span class="selected-file-name"></span>
+                                <i class="bi bi-check-circle-fill file-feedback-icon"></i>
+                                <div class="file-feedback-title">Fichiers prêts !</div>
+                                <div class="selected-file-name"></div>
+                                <div class="file-feedback-subtitle">Cliquez sur "Envoyer" pour traiter vos fichiers</div>
                             </div>
                         </label>
                         <input type="file" name="image" class="file-input" id="imageInput" required>
@@ -247,12 +249,29 @@ function updateFileInputFeedback() {
     if (input.files && input.files.length > 0) {
         prompt.style.display = 'none';
         feedback.style.display = 'flex';
-        label.classList.add('has-file');
-        fileNameEl.textContent = input.files.length === 1 ? input.files[0].name : `${input.files.length} fichiers sélectionnés`;
+        
+        if (input.files.length === 1) {
+            fileNameEl.textContent = input.files[0].name;
+        } else {
+            fileNameEl.textContent = `${input.files.length} fichiers sélectionnés`;
+        }
+        
+        // Update icon based on file type
+        const icon = feedback.querySelector('.file-feedback-icon');
+        const title = feedback.querySelector('.file-feedback-title');
+        if (input.accept === 'video/*') {
+            icon.className = 'bi bi-camera-video-fill file-feedback-icon';
+            title.textContent = 'Vidéo prête !';
+        } else if (input.files.length > 1) {
+            icon.className = 'bi bi-images file-feedback-icon';
+            title.textContent = 'Images prêtes !';
+        } else {
+            icon.className = 'bi bi-check-circle-fill file-feedback-icon';
+            title.textContent = 'Image prête !';
+        }
     } else {
         prompt.style.display = 'flex';
         feedback.style.display = 'none';
-        label.classList.remove('has-file');
         fileNameEl.textContent = '';
     }
 }
