@@ -96,15 +96,15 @@
                         </li>
                         {% if current_user %}
                         <li class="nav-item">
-                            <a class="nav-link {{ 'active' if request.endpoint == 'main.classifier' }}"
-                               href="{{ url_for('main.classifier') }}">
-                                <i class="bi bi-robot me-1"></i> Classifier
-                            </a>
-                        </li>
-                        <li class="nav-item">
                             <a class="nav-link {{ 'active' if request.endpoint == 'main.upload' }}"
                                href="{{ url_for('main.upload') }}">
                                 <i class="bi bi-images me-1"></i> Mes images
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ 'active' if request.endpoint == 'main.classifier' }}"
+                               href="{{ url_for('main.classifier') }}">
+                                <i class="bi bi-robot me-1"></i> Classifier
                             </a>
                         </li>
                         {% endif %}
