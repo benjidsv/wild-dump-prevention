@@ -1,11 +1,14 @@
 {
-  "edge_density": 0.05,
-  "texture_variance": 500.0,
-  "color_diversity": 800,
-  "contour_count": 20,
-  "brightness_low": 80,
-  "brightness_high": 180,
-  "avg_saturation": 100.0,
-  "file_size": 100000,
-  "full_score_thresh": 4
+  "DARK_RATIO_TH": 0.12,
+  "EDGE_DENSITY_TH": 0.056,
+  "CONTOUR_COUNT_TH": 8,
+  "COLOR_DIVERSITY_TH": 120,
+  "SAT_MEAN_TH": 0.50,
+  "BRIGHT_RATIO_TH": 0.01,
+  "STD_INTENSITY_TH": 0.35,
+  "ENTROPY_TH": 7.0,
+  "COLOR_CLUSTERS_TH": 3,
+  "ASPECT_DEV_TH": 0.40,
+  "FILL_RATIO_TH": 0.85,
+  "FULL_SCORE_THRESH": 4
 }
