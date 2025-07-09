@@ -55,7 +55,7 @@
             <input type="hidden" name="timestamp_manual_{{ loop.index0 }}" id="timestamp_manual_{{ loop.index0 }}">
             <input type="hidden" name="location_manual_{{ loop.index0 }}" id="location_manual_{{ loop.index0 }}">
             <input type="hidden" name="is_manual_{{ loop.index0 }}" id="is_manual_{{ loop.index0 }}">
-            <input type="hidden" name="features_{{ loop.index0 }}" id="features_{{ loop.index0 }" value="{{ feats[loop.index0] | tojson | safe }}">
+            <input type="hidden" name="features_{{ loop.index0 }}" id="features_{{ loop.index0 }}" value="{{ feats[loop.index0] | e }}">
 
 
             <!-- Label Field -->
