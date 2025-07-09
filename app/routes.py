@@ -128,7 +128,8 @@ def add_image_to_db(filename, address, timestamp_str, label, label_manual, times
 
             location = Location(address=address, latitude=lat, longitude=lon)
 
-    database.session.add(location)
+    if location:
+        database.session.add(location)
     database.session.flush()
 
     # Handle features - can be either a JSON string or a dictionary
@@ -180,7 +181,6 @@ def add_image_to_db(filename, address, timestamp_str, label, label_manual, times
 
     # Get updated stats and location data for real-time updates
     from sqlalchemy import func
-    from app.db.models import Location
     
     # Get updated stats
     label_counts = (
@@ -322,7 +322,11 @@ def upload():
             # Feature extraction
             label_auto, features = classify_image_by_rules(filepath)
             labels.append(label_auto)
-            feats.append(features)
+            import json as json_module
+            feats.append(json_module.dumps(features))
+            print(f"DEBUG UPLOAD_MULTIPLE: Image {filename} features: {features}")
+            print(f"DEBUG UPLOAD_MULTIPLE: Features type: {type(features)}")
+            print(f"DEBUG UPLOAD_MULTIPLE: JSON string: {json_module.dumps(features)}")
             
             exif_timestamp = extract_exif_timestamp(filepath)
             timestamp = exif_timestamp or datetime.utcnow()
@@ -455,7 +459,9 @@ def confirm_upload_multiple():
         
         try:
             features = json.loads(features_str)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            print(f"DEBUG CONFIRM_MULTIPLE: JSON decode error for image {idx+1}: {e}")
+            print(f"DEBUG CONFIRM_MULTIPLE: Raw features_str: {repr(features_str)}")
             flash(f"Erreur: format des caractéristiques invalide pour l'image {idx+1}.", "danger")
             return redirect(url_for("main.upload"))
 
@@ -555,7 +561,8 @@ def extract_from_video():
         # Auto-détection pour chaque frame
         label_auto, features = classify_image_by_rules(img_path)
         labels.append(label_auto)
-        feats.append(features)
+        import json as json_module
+        feats.append(json_module.dumps(features))
         ts_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M")
         timestamps.append(ts_iso)
         locations.append("")   # ou ta fonction EXIF si besoin
