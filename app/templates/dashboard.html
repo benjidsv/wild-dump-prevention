@@ -117,18 +117,32 @@
   <div class="card chart-card hover-lift">
     <div class="chart-header">
       <h3>Distribution des Poubelles</h3>
-      <span class="badge bg-secondary">Temps-réel</span>
     </div>
     <canvas id="pieChart" width="300" height="300"></canvas>
   </div>
 
-  <!-- Time Series Chart -->
+  <!-- Histogram -->
   <div class="card chart-card hover-lift">
     <div class="chart-header">
-      <h3>Collection Trends</h3>
-      <span class="badge bg-secondary">Last 7 days</span>
+      <h3>Images ajoutées (7 derniers jours)</h3>
     </div>
-    <canvas id="lineChart" width="300" height="300"></canvas>
+    <canvas id="histogramChart" width="300" height="300"></canvas>
+  </div>
+
+  <!-- Radar Chart -->
+  <div class="card chart-card hover-lift">
+    <div class="chart-header">
+      <h3>Profil Moyen par Label</h3>
+    </div>
+    <canvas id="radarChart"></canvas>
+  </div>
+
+  <!-- Hourly Chart -->
+  <div class="card chart-card hover-lift">
+      <div class="chart-header">
+          <h3>Répartition par Heure</h3>
+      </div>
+      <canvas id="hourlyChart"></canvas>
   </div>
 </div>
 
@@ -199,46 +213,37 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* --------------------------------------------------------------------------- */
-  /* 2. Line Chart - Collection Trends                                           */
+  /* 3. Histogram - Daily Image Uploads                                          */
   /* --------------------------------------------------------------------------- */
-  const lineCtx = document.getElementById('lineChart').getContext('2d');
-  const lineGradient = lineCtx.createLinearGradient(0, 0, 0, 300);
-  lineGradient.addColorStop(0, 'rgba(74, 155, 142, 0.3)');
-  lineGradient.addColorStop(1, 'rgba(74, 155, 142, 0.0)');
+  const histogramCtx = document.getElementById('histogramChart').getContext('2d');
+  const histogramLabels = {{ histogram_labels|tojson|safe }};
+  const histogramValues = {{ histogram_values|tojson|safe }};
 
-  // Sample data - replace with actual time series data
-  const last7Days = Array.from({length: 7}, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-  });
+  const histogramGradient = histogramCtx.createLinearGradient(0, 0, 0, 300);
+  histogramGradient.addColorStop(0, 'rgba(54, 162, 235, 0.5)');
+  histogramGradient.addColorStop(1, 'rgba(54, 162, 235, 0)');
 
-  window.lineChart = new Chart(lineCtx, {
-    type: 'line',
+  window.histogramChart = new Chart(histogramCtx, {
+    type: 'bar',
     data: {
-      labels: last7Days,
+      labels: histogramLabels,
       datasets: [{
-        label: 'Full Bins',
-        data: [12, 19, 15, 25, 22, 30, {{ stats.full|default(0) }}],
-        borderColor: '#4a9b8e',
-        backgroundColor: lineGradient,
-        borderWidth: 3,
-        fill: true,
-        tension: 0.4,
-        pointRadius: 6,
-        pointHoverRadius: 8,
-        pointBackgroundColor: '#fff',
-        pointBorderColor: '#4a9b8e',
-        pointBorderWidth: 2
+        label: 'Nombre d\'images',
+        data: histogramValues,
+        backgroundColor: histogramGradient,
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 2,
+        borderRadius: 4,
+        hoverBackgroundColor: 'rgba(54, 162, 235, 0.7)'
       }]
     },
     options: {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(30, 58, 95, 0.9)',
-          padding: 12,
-          cornerRadius: 8
+            backgroundColor: 'rgba(30, 58, 95, 0.9)',
+            padding: 12,
+            cornerRadius: 8
         }
       },
       responsive: true,
@@ -246,27 +251,124 @@ document.addEventListener('DOMContentLoaded', () => {
       scales: {
         y: {
           beginAtZero: true,
-          grid: {
-            color: 'rgba(0, 0, 0, 0.05)'
-          },
-          ticks: {
-            font: { size: 12 }
+          grid: { color: 'rgba(0, 0, 0, 0.05)' },
+          ticks: { 
+            font: { size: 12 },
+            stepSize: 1 
           }
         },
         x: {
-          grid: {
-            display: false
-          },
-          ticks: {
-            font: { size: 12 }
-          }
+          grid: { display: false },
+          ticks: { font: { size: 12 } }
         }
       }
     }
   });
 
+
   /* --------------------------------------------------------------------------- */
-  /* 3. Enhanced Leaflet Map                                                     */
+  /* 4. Radar Chart - Average Feature Profile                                    */
+  /* --------------------------------------------------------------------------- */
+  const radarCtx = document.getElementById('radarChart').getContext('2d');
+  const radarData = {{ radar_data|tojson|safe }};
+
+  window.radarChart = new Chart(radarCtx, {
+      type: 'radar',
+      data: {
+          labels: radarData.labels,
+          datasets: [{
+              label: 'Full',
+              data: radarData.datasets.full,
+              backgroundColor: 'rgba(220, 53, 69, 0.2)',
+              borderColor: 'rgb(220, 53, 69)',
+              pointBackgroundColor: 'rgb(220, 53, 69)',
+              borderWidth: 2
+          }, {
+              label: 'Empty',
+              data: radarData.datasets.empty,
+              backgroundColor: 'rgba(40, 167, 69, 0.2)',
+              borderColor: 'rgb(40, 167, 69)',
+              pointBackgroundColor: 'rgb(40, 167, 69)',
+              borderWidth: 2
+          }]
+      },
+      options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+              legend: {
+                  position: 'top',
+              },
+              tooltip: {
+                  backgroundColor: 'rgba(30, 58, 95, 0.9)',
+                  padding: 12,
+                  cornerRadius: 8
+              }
+          },
+          scales: {
+              r: {
+                  angleLines: {
+                      color: 'rgba(0, 0, 0, 0.1)'
+                  },
+                  grid: {
+                      color: 'rgba(0, 0, 0, 0.1)'
+                  },
+                  pointLabels: {
+                      font: {
+                          size: 11
+                      },
+                      color: '#495057'
+                  },
+                  ticks: {
+                      backdropColor: 'rgba(255, 255, 255, 0.75)',
+                      color: '#6c757d'
+                  }
+              }
+          }
+      }
+  });
+
+  /* --------------------------------------------------------------------------- */
+  /* 5. Hourly Distribution Chart                                                */
+  /* --------------------------------------------------------------------------- */
+  const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+  const hourlyLabels = {{ hourly_labels|tojson|safe }};
+  const hourlyValues = {{ hourly_values|tojson|safe }};
+
+  const hourlyGradient = hourlyCtx.createLinearGradient(0, 0, 0, 300);
+  hourlyGradient.addColorStop(0, 'rgba(255, 159, 64, 0.5)');
+  hourlyGradient.addColorStop(1, 'rgba(255, 159, 64, 0)');
+
+  window.hourlyChart = new Chart(hourlyCtx, {
+      type: 'line',
+      data: {
+          labels: hourlyLabels,
+          datasets: [{
+              label: 'Nombre d\'images',
+              data: hourlyValues,
+              backgroundColor: hourlyGradient,
+              borderColor: 'rgba(255, 159, 64, 1)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4
+          }]
+      },
+      options: {
+          plugins: {
+              legend: { display: false }
+          },
+          scales: {
+              y: {
+                  beginAtZero: true,
+                  ticks: { stepSize: 1 }
+              }
+          }
+      }
+  });
+
+
+  /* --------------------------------------------------------------------------- */
+  /* 6. Enhanced Leaflet Map                                                     */
   /* --------------------------------------------------------------------------- */
 
   // Hide loading spinner
