@@ -15,7 +15,7 @@ from app.classification.rules import classify_image_by_rules
 from app.classification.rules_store import get_rules, save_rules
 from app.db.models import Image, User, Location
 from app.extensions import database, csrf, socketio
-from datetime import datetime
+from datetime import datetime, timedelta
 from PIL import Image as PILImage
 from PIL.ExifTags import TAGS, GPSTAGS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -105,6 +105,7 @@ def add_image_to_db(filename, address, timestamp_str, label, label_manual, times
     if address_is_location:
         location = address
     else:
+        from app.db.models import Location
         # If the location is already in the db, no need to recreate
         location = (
             Location.query.filter_by(address=address).first()
@@ -127,7 +128,8 @@ def add_image_to_db(filename, address, timestamp_str, label, label_manual, times
 
             location = Location(address=address, latitude=lat, longitude=lon)
 
-    database.session.add(location)
+    if location:
+        database.session.add(location)
     database.session.flush()
 
     # Handle features - can be either a JSON string or a dictionary
@@ -179,7 +181,6 @@ def add_image_to_db(filename, address, timestamp_str, label, label_manual, times
 
     # Get updated stats and location data for real-time updates
     from sqlalchemy import func
-    from app.db.models import Location
     
     # Get updated stats
     label_counts = (
@@ -321,7 +322,11 @@ def upload():
             # Feature extraction
             label_auto, features = classify_image_by_rules(filepath)
             labels.append(label_auto)
-            feats.append(features)
+            import json as json_module
+            feats.append(json_module.dumps(features))
+            print(f"DEBUG UPLOAD_MULTIPLE: Image {filename} features: {features}")
+            print(f"DEBUG UPLOAD_MULTIPLE: Features type: {type(features)}")
+            print(f"DEBUG UPLOAD_MULTIPLE: JSON string: {json_module.dumps(features)}")
             
             exif_timestamp = extract_exif_timestamp(filepath)
             timestamp = exif_timestamp or datetime.utcnow()
@@ -454,7 +459,9 @@ def confirm_upload_multiple():
         
         try:
             features = json.loads(features_str)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            print(f"DEBUG CONFIRM_MULTIPLE: JSON decode error for image {idx+1}: {e}")
+            print(f"DEBUG CONFIRM_MULTIPLE: Raw features_str: {repr(features_str)}")
             flash(f"Erreur: format des caractéristiques invalide pour l'image {idx+1}.", "danger")
             return redirect(url_for("main.upload"))
 
@@ -554,7 +561,8 @@ def extract_from_video():
         # Auto-détection pour chaque frame
         label_auto, features = classify_image_by_rules(img_path)
         labels.append(label_auto)
-        feats.append(features)
+        import json as json_module
+        feats.append(json_module.dumps(features))
         ts_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M")
         timestamps.append(ts_iso)
         locations.append("")   # ou ta fonction EXIF si besoin
@@ -682,36 +690,100 @@ def update_image():
 
 @main.route("/dashboard")
 def dashboard():
-    start_date_str   = request.args.get("start_date")
-    end_date_str     = request.args.get("end_date")
-    location_filter  = request.args.get("location")
-
     # -------------------------------------------------- #
     # Base query (eager-load Location to avoid N+1)
     # -------------------------------------------------- #
     query = (
         Image.query
         .options(joinedload(Image.location))
-        .filter(Image.location_id.isnot(None))          # only images with a location row
+        .filter(Image.location_id.isnot(None))  # only images with a location row
     )
 
     # ---------------- Date filter --------------------- #
+    start_date_str = request.args.get("start_date")
+    end_date_str = request.args.get("end_date")
     if start_date_str and end_date_str:
         try:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
-            end_date   = datetime.strptime(end_date_str,   "%Y-%m-%d")
-            query = query.filter(
-                Image.timestamp.between(start_date, end_date)
-            )
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+            query = query.filter(Image.timestamp.between(start_date, end_date))
         except ValueError:
             pass  # silently ignore bad date format
 
     # ---------------- Address filter ------------------ #
+    location_filter = request.args.get('location_filter')
     if location_filter:
         query = (
             query.join(Image.location)
                  .filter(Location.address.ilike(f"%{location_filter}%"))
         )
+
+    # --- Last 7 days stats for histogram ---
+    today = datetime.utcnow().date()
+    seven_days_ago = today - timedelta(days=6)
+    
+    daily_counts_query = (
+        database.session.query(
+            func.date(Image.timestamp).label('date'),
+            func.count(Image.id).label('count')
+        )
+        .filter(func.date(Image.timestamp) >= seven_days_ago)
+        .group_by(func.date(Image.timestamp))
+        .order_by(func.date(Image.timestamp))
+    )
+    
+    # Apply filters to histogram query as well
+    if start_date_str and end_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+            daily_counts_query = daily_counts_query.filter(Image.timestamp.between(start_date, end_date))
+        except ValueError:
+            pass
+    
+    daily_counts = daily_counts_query.all()
+    
+    counts_dict = {row.date.strftime('%Y-%m-%d'): row.count for row in daily_counts}
+    
+    histogram_labels = [(today - timedelta(days=i)).strftime('%a %d') for i in range(6, -1, -1)]
+    histogram_values = [counts_dict.get((today - timedelta(days=i)).strftime('%Y-%m-%d'), 0) for i in range(6, -1, -1)]
+
+    # --- Radar Chart data ---
+    feature_labels = [
+        "Dark Ratio", "Edge Density", "Contour Count", "Color Diversity",
+        "Avg Saturation", "Bright Ratio", "Std Intensity", "Entropy",
+        "Color Clusters", "Aspect Dev", "Fill Ratio"
+    ]
+    feature_keys = [
+        "dark_ratio", "edge_density", "contour_count", "color_diversity",
+        "avg_saturation", "bright_ratio", "std_intensity", "entropy",
+        "color_clusters", "aspect_dev", "fill_ratio"
+    ]
+    feature_cols = [getattr(Image, key) for key in feature_keys]
+
+    avg_features_query = (
+        query.with_entities(
+            Image.label,
+            *[func.avg(col) for col in feature_cols]
+        )
+        .group_by(Image.label)
+    )
+    
+    avg_features = avg_features_query.all()
+
+    radar_data = {
+        'labels': feature_labels,
+        'datasets': {
+            'full': [0] * len(feature_keys),
+            'empty': [0] * len(feature_keys)
+        }
+    }
+
+    for row in avg_features:
+        label = row[0]  # Image.label
+        if label in ['full', 'empty']:
+            averages = [round(val or 0, 2) for val in row[1:]]
+            radar_data['datasets'][label] = averages
 
     # -------------- Pie-chart stats ------------------- #
     label_counts = (
@@ -722,7 +794,7 @@ def dashboard():
     stats = {"full": 0, "empty": 0}
     for label, count in label_counts:
         if label == "full":
-            stats["full"]  = count
+            stats["full"] = count
         elif label == "empty":
             stats["empty"] = count
 
@@ -738,12 +810,12 @@ def dashboard():
 
     # ------------- Map markers ------------------------ #
     locations_coords = []
-    for img in query:                          # already filtered & eager-loaded
+    for img in query.all():  # Execute query here
         loc = img.location
         if loc and loc.latitude is not None and loc.longitude is not None:
             locations_coords.append({
-                "lat":  float(loc.latitude),
-                "lon":  float(loc.longitude),
+                "lat": float(loc.latitude),
+                "lon": float(loc.longitude),
                 "label": img.label or "non défini"
             })
 
@@ -752,7 +824,7 @@ def dashboard():
 
     grid = defaultdict(lambda: {"full": 0, "total": 0, "lat": 0, "lon": 0})
 
-    for loc in locations_coords:  # ← already filtered list
+    for loc in locations_coords:
         lt, ln = tile(loc["lat"]), tile(loc["lon"])
         key = (lt, ln)
         bucket = grid[key]
@@ -761,15 +833,30 @@ def dashboard():
             bucket["full"] += 1
         bucket["lat"], bucket["lon"] = lt, ln  # keep centre
 
-    # convert to list the template can "tojson"
     danger_zones = [
         {
             "lat": b["lat"],
             "lon": b["lon"],
-            "ratio": b["full"] / b["total"]  # 0 → green, 1 → dark-red
+            "ratio": b["full"] / b["total"]
         }
-        for b in grid.values() if b["total"] >= 3  # ignore tiny samples
+        for b in grid.values() if b["total"] >= 3
     ]
+
+    # --- Hourly distribution for bar chart ---
+    hourly_counts_query = (
+        query.with_entities(
+            func.to_char(Image.timestamp, 'HH24').label('hour'),
+            func.count(Image.id).label('count')
+        )
+        .group_by(func.to_char(Image.timestamp, 'HH24'))
+    )
+    
+    hourly_counts = hourly_counts_query.all()
+
+    counts_dict_hourly = {row.hour: row.count for row in hourly_counts}
+    
+    hourly_labels = [f"{h:02d}:00" for h in range(24)]
+    hourly_values = [counts_dict_hourly.get(f"{h:02d}", 0) for h in range(24)]
 
     return render_template(
         "dashboard.html",
@@ -777,7 +864,13 @@ def dashboard():
         locations=all_locations,
         locations_coords=locations_coords,
         danger_zones=danger_zones,
+        histogram_labels=histogram_labels,
+        histogram_values=histogram_values,
+        radar_data=radar_data,
+        hourly_labels=hourly_labels,
+        hourly_values=hourly_values
     )
+
 @main.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":

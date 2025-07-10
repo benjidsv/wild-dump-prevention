@@ -1,5 +1,5 @@
 .metadata-value.truncate {
-  max-width: 180px;         /* ajuste si tu veux plus large */
+  max-width: 100px;         /* ajuste si tu veux plus large */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

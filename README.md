@@ -7,7 +7,6 @@
 The Wild Dump Prevention (WDP) platform is a lightweight web application that helps monitor overflowing public trash bins by analyzing images. It enables citizens or agents to upload pictures, automatically extracts visual features, applies rule-based classification (full/empty), and visualizes trends to help prevent illegal dumps.
 
 ---
-
 ## 🚀 Features
 
 - 📸 Upload images of trash bins
@@ -15,16 +14,10 @@ The Wild Dump Prevention (WDP) platform is a lightweight web application that he
 - 📊 Extract visual features: size, average color, contrast, contours, etc.
 - 🧠 Classify images based on configurable rule sets (no machine learning)
 - 🗺️ Visualize statistics & risk zones with dynamic dashboard (Chart.js)
-
+- 🛡️ Secure user upload which forces the user to take the picture now ensuring the accuracy of the data (timestamp, location etc.)
+- 📦 Batch admin upload
+- 📹 Upload videos and select timestamps
 ---
-
-## 🚀 TODO
-Features:
-- Secure user upload which forces the user to take the picture now ensuring the accuracy of the data (timestamp, location etc.)
-- Batch admin upload
-- Upload videos and select timestamps
-- 
-
 ## ⚙️ Tech Stack
 
 | Layer | Technology             |
@@ -43,23 +36,14 @@ wild-dump-prevention/
 ├── app/
 │   ├── classification/    # Classification logic & models
 │   ├── templates/         # HTML templates (Jinja2)
-│   ├── db/models.py       # Database models
+│   ├── db/models.py       
+|   |   ├── models.py      # Database models
+|   |   ├── base.sql       # Full database
 │   ├── static/            # CSS, JS, uploads
+|   |   ├── css/           # CSS for the templates
+|   |   ├── uploads/       # Uploaded images (ignored by Git)
 │   ├── routes.py          # Flask routes
-│   ├── feature_extraction.py
-├── uploads/               # Uploaded images (ignored by Git)
-├── ml/
-│   ├── classification/      # Binary classifier
-│   │   ├── train.py
-│   │   ├── dataset/         # Only for classifier
-│   │   └── saved_models/
-│   ├── detection/           # YOLO detector
-│   │   ├── train.py
-│   │   ├── runs/
-│   │   └── dataset/         # Annotated YOLO data
-│   ├── explainability/      # Grad-CAM / interpretability
-├── data/                    # Raw images (clean/dirty)
-│   ├── annotations/         # CSVs or YOLO label files
+│   ├── extensions.py             
 ├── main.py                # Flask entrypoint (dev)
 ├── run.py                 # Gunicorn entrypoint (prod)
 ├── config.py              # Configurations (dev/prod)
@@ -126,14 +110,20 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO wdp_user;
 
 ## 4 · Environment variables
 
+For Unix:
 ```bash
 cp .env.example .env          # then edit if needed
 ```
 
+For Window:
+```bash
+copy .env.example .env        # then edit if needed
+```
 ---
 
 ## 5 · Initialise / reset the DB (custom Flask CLI)
 
+If you want an empty database, do this:
 ```bash
 flask create-db               # creates all tables
 flask create-superuser        # interactive super-admin creation
@@ -142,13 +132,25 @@ flask create-superuser        # interactive super-admin creation
 flask drop-db --yes
 ```
 
+If you want a full database, do this:
+```bash
+psql -U postgres -d wdp_db -f app/db/base.sql
+```
+
+The account is:
+| username | mail | password |
+|----|------|--------------|
+| **admin** | `admin@test.com` | ```test``` |
 ---
 
 ## 6 · Static uploads directory
 
+If you have chosen to have an empty database, do this:
 ```bash
 mkdir -p app/static/uploads
 ```
+
+If you have chosen to fill the database, you should unzip the folder uploads.zip into the static directory.
 
 ---
 
